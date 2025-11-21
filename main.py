@@ -35,17 +35,26 @@ def main(input_file: str, output_directory: str):
     pass
 
 
-def custom_colormap():
+def custom_colormap(N: int = 250) -> LinearSegmentedColormap:
+    """Create a custom continuous colormap adapted from CREA colors.
 
-    # colormap option 2:
-    N = 12
-    vals = np.ones((N, 4))*256
+    Parameters
+    ----------
+    N : int
+        Number of colors in the continuous colormap.
+
+    Returns
+    -------
+    cmap : matplotlib.colors.LinearSegmentedColormap
+        Continuous colormap.
+    """
+    # colormap, adapted from crea colors
+    n_discrete = 12
+    vals = np.ones((n_discrete, 4))*256
     vals[0, 0:-1] = [39, 165, 156]   # #27a59c
-    # cde0b4 (as a color between the yellow and turquoise)
     vals[1, 0:-1] = [205, 224, 180]
     vals[2, 0:-1] = [255, 229, 153]  # FFE599 (instead of fff2cc)
     vals[3, 0:-1] = [246, 178, 107]  # f6b26b
-    # e65d30 - suggestion for between red and orange
     vals[4, 0:-1] = [230, 93, 48]
     vals[5, 0:-1] = [204, 0, 0]     # #cc0000
     vals[6, 0:-1] = [153, 0, 0]     # #990000
@@ -57,27 +66,12 @@ def custom_colormap():
 
     vals = vals/256
 
-    return create_continuous_cmap(ListedColormap(vals), N=250)
-
-
-def create_continuous_cmap(cmap: ListedColormap, N: int = 200) -> LinearSegmentedColormap:
-    """Create continuous colormap from discrete colormap.
-
-    cmap : matplotlib.colors.ListedColormap
-        Discrete colormap.
-    N : int
-        Number of colors in the continuous colormap.
-
-    Returns
-    -------
-    cmap : matplotlib.colors.LinearSegmentedColormap
-        Continuous colormap.
-    """
-
-    cmaplist = [cmap(i) for i in range(cmap.N)]
+    # Create discrete colormap and convert to continuous
+    discrete_cmap = ListedColormap(vals)
+    cmaplist = [discrete_cmap(i) for i in range(discrete_cmap.N)]
 
     return LinearSegmentedColormap.from_list(
-        cmap.name + "_cont", cmaplist, N)
+        "crea_custom_cont", cmaplist, N)
 
 
 if __name__ == "__main__":
