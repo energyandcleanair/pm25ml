@@ -3,9 +3,11 @@ import os
 import xarray as xr
 import numpy as np
 from crea_graphics.geotiff import write_cog
+import json
 
 
-def main(input_file: str, output_directory: str):
+def main(input_file: str, output_directory: str,
+         url_prefix: str = "https://storage.googleapis.com/crea-pm25ml-project-website-assets"):
 
     # 1. Read in the nc file
     ds = xr.open_dataset(input_file, decode_coords="all")
@@ -21,6 +23,9 @@ def main(input_file: str, output_directory: str):
     # create output dir
     os.makedirs(os.path.join(output_directory, 'rasters'), exist_ok=True)
 
+    # create a list of dictionaries with metadata info: month, year, and filename
+    data_dicts = []
+
     for month in monthly_ds['time']:
         outfilename = f'pm25_{str(month.dt.strftime("%Y_%m").values)}'
         data = monthly_ds['pm25'].sel(time=month)
@@ -30,9 +35,17 @@ def main(input_file: str, output_directory: str):
                       output_directory, 'rasters', f'{outfilename}.tif'),
                   no_alpha=False)
 
-    # 4. Generate json reference file
+        data_dicts.append({
+            'year': str(int(month.dt.year.values)),
+            'month': str(int(month.dt.month.values)),
+            'url': f'{url_prefix}/rasters/{outfilename}.tif'
+        })
 
-    pass
+    # 4. Generate json reference file
+    # save the data_dicts as a json file
+
+    with open(os.path.join(output_directory, 'metadata.json'), 'w') as f:
+        json.dump(data_dicts, f, indent=4)
 
 
 def custom_colormap(N: int = 250) -> LinearSegmentedColormap:
