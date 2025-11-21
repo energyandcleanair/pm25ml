@@ -1,9 +1,12 @@
+import json
+from matplotlib import pyplot as plt
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+import matplotlib.colors as mcolors
+import numpy as np
 import os
 import xarray as xr
-import numpy as np
+
 from crea_graphics.geotiff import write_cog
-import json
 
 
 def main(input_file: str, output_directory: str,
@@ -16,9 +19,9 @@ def main(input_file: str, output_directory: str,
     monthly_ds = ds.resample(time='MS').mean()
 
     # 3. Save monthly files as COG
-    vmin = 0  # monthly_ds['pm25'].min().values
+    vmin = 0
     vmax = monthly_ds['pm25'].max().values*0.9
-    color_map = custom_colormap()  # 'viridis'
+    color_map = custom_colormap()
 
     # create output dir
     os.makedirs(os.path.join(output_directory, 'rasters'), exist_ok=True)
@@ -46,6 +49,11 @@ def main(input_file: str, output_directory: str,
 
     with open(os.path.join(output_directory, 'metadata.json'), 'w') as f:
         json.dump(data_dicts, f, indent=4)
+
+    # also make a json file for the color scale
+    color_props = color_properties(color_map, (vmin, vmax), 'µg/m³')
+    with open(os.path.join(output_directory, 'color_scale.json'), 'w') as f:
+        json.dump(color_props, f, indent=4)
 
 
 def custom_colormap(N: int = 250) -> LinearSegmentedColormap:
@@ -85,6 +93,31 @@ def custom_colormap(N: int = 250) -> LinearSegmentedColormap:
 
     return LinearSegmentedColormap.from_list(
         "crea_custom_cont", cmaplist, N)
+
+
+def color_properties(color_map, color_bounds, units: str, N_sample: int = 20):
+
+    # generate colorscale for metadata, as a list of hex strings
+    if isinstance(color_map, str):
+        color_map = plt.get_cmap(color_map)
+
+    # sample 20 colors from the colormap
+    # (need to use integeres, so that color_map returns color
+    # based on index in colormap and not color assigned to value)
+    color_scale = [color_map(x) for x in
+                   np.linspace(0, color_map.N, N_sample).astype(int)]
+    # convert to hex
+    color_scale = [mcolors.rgb2hex(c) for c in color_scale]
+
+    # create metadata dictionary
+    metadata = {
+        'minval': round(color_bounds[0]),
+        'maxval': round(color_bounds[1]),
+        'unit': units,
+        'scale': color_scale,
+    }
+
+    return metadata
 
 
 if __name__ == "__main__":
