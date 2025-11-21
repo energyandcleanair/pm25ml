@@ -19,7 +19,7 @@ def main(input_file: str, output_directory: str):
     color_map = custom_colormap()  # 'viridis'
 
     # create output dir
-    os.makedirs(output_directory, exist_ok=True)
+    os.makedirs(os.path.join(output_directory, 'rasters'), exist_ok=True)
 
     for month in monthly_ds['time']:
         outfilename = f'pm25_{str(month.dt.strftime("%Y_%m").values)}'
@@ -27,7 +27,7 @@ def main(input_file: str, output_directory: str):
 
         write_cog(data, vmin=vmin, vmax=vmax, cmap=color_map,
                   output_path=os.path.join(
-                      output_directory, f'{outfilename}.tif'),
+                      output_directory, 'rasters', f'{outfilename}.tif'),
                   no_alpha=False)
 
     # 4. Generate json reference file
