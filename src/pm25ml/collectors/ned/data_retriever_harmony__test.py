@@ -39,13 +39,19 @@ def mock_earth_access__data_available():
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
         patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
+        ) as mock_search_data,
+        patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,
     ):
         # Mock dataset search
-        mock_search_datasets.return_value = [
-            MagicMock(concept_id=lambda: "mock_collection_id")
-        ]
+        mock_search_datasets.return_value = [MagicMock(concept_id=lambda: "mock_collection_id")]
+
+        # Mock granule search
+        mock_search_data.return_value = [
+            MagicMock() for _ in range(15)
+        ]  # Adjust to match days_in_range
 
         mock_get_edl_token.return_value = {"access_token": EXPECTED_ACCESS_TOKEN}
         yield
@@ -58,11 +64,17 @@ def mock_earth_access__no_dataset():
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
         patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
+        ) as mock_search_data,
+        patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,
     ):
         # Mock dataset search to return no datasets
         mock_search_datasets.return_value = []
+
+        # Mock granule search to return no data
+        mock_search_data.return_value = []
 
         mock_get_edl_token.return_value = {"access_token": EXPECTED_ACCESS_TOKEN}
         yield
@@ -75,6 +87,9 @@ def mock_earth_access__too_many_datasets():
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
         patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
+        ) as mock_search_data,
+        patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,
     ):
@@ -83,48 +98,63 @@ def mock_earth_access__too_many_datasets():
             MagicMock(concept_id=lambda: "mock_collection_id2"),
         ]
 
+        mock_search_data.return_value = []
+
+        mock_get_edl_token.return_value = {"access_token": EXPECTED_ACCESS_TOKEN}
+        yield
+
+
+@pytest.fixture()
+def mock_earth_access__dataset_available_wrong_number_of_granules():
+    with (
+        patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
+        ) as mock_search_datasets,
+        patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
+        ) as mock_search_data,
+        patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
+        ) as mock_get_edl_token,
+    ):
+        # Mock dataset search
+        mock_search_datasets.return_value = [MagicMock(concept_id=lambda: "mock_collection_id")]
+
+        # Mock granule search
+        mock_search_data.return_value = [
+            MagicMock() for _ in range(5)
+        ]  # Adjust to match days_in_range
+
+        mock_get_edl_token.return_value = {"access_token": EXPECTED_ACCESS_TOKEN}
+        yield
+
+
+@pytest.fixture()
+def mock_earth_access__dataset_available_no_granules():
+    with (
+        patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
+        ) as mock_search_datasets,
+        patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
+        ) as mock_search_data,
+        patch(
+            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
+        ) as mock_get_edl_token,
+    ):
+        # Mock dataset search
+        mock_search_datasets.return_value = [MagicMock(concept_id=lambda: "mock_collection_id")]
+
+        # Mock granule search
+        mock_search_data.return_value = []
+
         mock_get_edl_token.return_value = {"access_token": EXPECTED_ACCESS_TOKEN}
         yield
 
 
 @pytest.fixture
-def mock_response__job_complete_wrong_number_of_links():
-    """Mock a successful job with wrong number of links (5 instead of 15)."""
-    responses.add(
-        responses.GET,
-        "https://harmony.earthdata.nasa.gov/jobs/mock_job_id",
-        json={
-            "status": "successful",
-            "progress": 100,
-            "links": [
-                {"href": f"https://example.com/mock_file_{i}.nc", "rel": "data"}
-                for i in range(5)
-            ],
-        },
-        match=[EXPECTED_AUTH_HEADER_MATCHER],
-        status=200,
-    )
-
-
-@pytest.fixture
-def mock_response__job_complete_no_links():
-    """Mock a successful job with no data links."""
-    responses.add(
-        responses.GET,
-        "https://harmony.earthdata.nasa.gov/jobs/mock_job_id",
-        json={
-            "status": "successful",
-            "progress": 100,
-            "links": [],
-        },
-        match=[EXPECTED_AUTH_HEADER_MATCHER],
-        status=200,
-    )
-
-
-@pytest.fixture
 def mock_files():
-    return [MagicMock() for _ in range(15)]
+    return [MagicMock(), MagicMock()]
 
 
 @pytest.fixture
@@ -135,9 +165,7 @@ def mock_https_filesystem__opens_files(mock_files):
 
 
 @pytest.fixture
-def mock_ffspec__create_filesystem_which_opens_files(
-    mock_https_filesystem__opens_files,
-):
+def mock_ffspec__create_filesystem_which_opens_files(mock_https_filesystem__opens_files):
     with patch(
         "pm25ml.collectors.ned.data_retriever_harmony.fsspec.filesystem"
     ) as mocked_filesystem:
@@ -183,8 +211,8 @@ def mock_response__job_complete():
             "status": "successful",
             "progress": 100,
             "links": [
-                {"href": f"https://example.com/mock_file_{i}.nc", "rel": "data"}
-                for i in range(15)
+                {"href": "https://example.com/mock_file_1.nc"},
+                {"href": "https://example.com/mock_file_2.nc"},
             ],
         },
         match=[EXPECTED_AUTH_HEADER_MATCHER],
@@ -198,11 +226,7 @@ def mock_response__job_fails():
     responses.add(
         responses.GET,
         "https://harmony.earthdata.nasa.gov/jobs/mock_job_id",
-        json={
-            "status": "failed",
-            "progress": 0,
-            "error": "Job failed due to an error.",
-        },
+        json={"status": "failed", "progress": 0, "error": "Job failed due to an error."},
         match=[EXPECTED_AUTH_HEADER_MATCHER],
         status=200,
     )
@@ -248,8 +272,8 @@ def mock_response__job_3x_running_then_success():
             "status": "successful",
             "progress": 100,
             "links": [
-                {"href": f"https://example.com/mock_file_{i}.nc", "rel": "data"}
-                for i in range(15)
+                {"href": "https://example.com/mock_file_1.nc"},
+                {"href": "https://example.com/mock_file_2.nc"},
             ],
         },
         match=[EXPECTED_AUTH_HEADER_MATCHER],
@@ -271,11 +295,11 @@ def test__HarmonySubsetterDataRetriever_stream_files__found_dataset_and_processi
     files = list(retriever.stream_files(dataset_descriptor=mock_dataset_descriptor))
 
     mock_https_filesystem__opens_files.open.asset_has_calls(
-        [call(f"https://example.com/mock_file_{i}.nc") for i in range(15)]
+        [call("https://example.com/mock_file_1.nc"), call("https://example.com/mock_file_2.nc")]
     )
-    assert len(files) == 15
+    assert len(files) == 2
     assert files[0] == mock_files[0]
-    assert files[-1] == mock_files[-1]
+    assert files[1] == mock_files[1]
 
 
 @responses.activate
@@ -293,9 +317,9 @@ def test__HarmonySubsetterDataRetriever_stream_files__takes_3_requests_before_co
     files = list(retriever.stream_files(dataset_descriptor=mock_dataset_descriptor))
 
     mock_https_filesystem__opens_files.open.asset_has_calls(
-        [call(f"https://example.com/mock_file_{i}.nc") for i in range(15)]
+        [call("https://example.com/mock_file_1.nc"), call("https://example.com/mock_file_2.nc")]
     )
-    assert len(files) == 15
+    assert len(files) == 2
 
 
 @responses.activate
@@ -310,9 +334,7 @@ def test__HarmonySubsetterDataRetriever_stream_files__happy_path__inits_filesyst
 ):
     retriever = HarmonySubsetterDataRetriever()
     # We need to consume the generator to trigger the filesystem creation.
-    collections.deque(
-        retriever.stream_files(dataset_descriptor=mock_dataset_descriptor)
-    )
+    collections.deque(retriever.stream_files(dataset_descriptor=mock_dataset_descriptor))
 
     mock_ffspec__create_filesystem_which_opens_files.assert_called_once_with(
         "https",
@@ -348,17 +370,14 @@ def test__HarmonySubsetterDataRetriever_stream_files__job_failed__raises_excepti
 def test__HarmonySubsetterDataRetriever_stream_files__no_dataset_found__raises_exception(
     mock_dataset_descriptor,
 ):
-    with pytest.raises(
-        NedMissingDataError, match="No datasets found for mock_dataset."
-    ):
+    with pytest.raises(NedMissingDataError, match="No datasets found for mock_dataset."):
         retriever = HarmonySubsetterDataRetriever()
         list(retriever.stream_files(dataset_descriptor=mock_dataset_descriptor))
 
 
 @responses.activate
 @pytest.mark.usefixtures(
-    "mock_earth_access__too_many_datasets",
-    "mock_ffspec__create_filesystem_which_opens_files",
+    "mock_earth_access__too_many_datasets", "mock_ffspec__create_filesystem_which_opens_files"
 )
 def test__HarmonySubsetterDataRetriever_stream_files__too_many_datasets_found__raises_exception(
     mock_dataset_descriptor,
@@ -373,17 +392,15 @@ def test__HarmonySubsetterDataRetriever_stream_files__too_many_datasets_found__r
 
 @responses.activate
 @pytest.mark.usefixtures(
-    "mock_earth_access__data_available",
+    "mock_earth_access__dataset_available_wrong_number_of_granules",
     "mock_ffspec__create_filesystem_which_opens_files",
-    "mock_response__job_submit_success",
-    "mock_response__job_complete_wrong_number_of_links",
 )
-def test__HarmonySubsetterDataRetriever_stream_files__wrong_n_links__raises_exception(
+def test__HarmonySubsetterDataRetriever_stream_files__wrong_n_granules__raises_exception(
     mock_dataset_descriptor,
 ):
     with pytest.raises(
         NedMissingDataError,
-        match=r"We require 14 or 15 \(for 15 days\) data links for dataset .* but found 5.",
+        match=r"We require 14 or 15 \(for 15 days\) granules for dataset .* but found 5.",
     ):
         retriever = HarmonySubsetterDataRetriever()
         list(retriever.stream_files(dataset_descriptor=mock_dataset_descriptor))
@@ -391,17 +408,13 @@ def test__HarmonySubsetterDataRetriever_stream_files__wrong_n_links__raises_exce
 
 @responses.activate
 @pytest.mark.usefixtures(
-    "mock_earth_access__data_available",
+    "mock_earth_access__dataset_available_no_granules",
     "mock_ffspec__create_filesystem_which_opens_files",
-    "mock_response__job_submit_success",
-    "mock_response__job_complete_no_links",
 )
-def test__HarmonySubsetterDataRetriever_stream_files__no_links__raises_exception(
+def test__HarmonySubsetterDataRetriever_stream_files__no_granules__raises_exception(
     mock_dataset_descriptor,
 ):
-    with pytest.raises(
-        NedMissingDataError, match="No data links returned by Harmony for dataset .*."
-    ):
+    with pytest.raises(NedMissingDataError, match="No granules found for dataset .*."):
         retriever = HarmonySubsetterDataRetriever()
         list(retriever.stream_files(dataset_descriptor=mock_dataset_descriptor))
 

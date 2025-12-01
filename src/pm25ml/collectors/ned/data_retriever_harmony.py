@@ -17,6 +17,7 @@ import requests
 from arrow import Arrow
 from requests.auth import AuthBase
 
+from pm25ml.collectors.ned.data_retriever_raw import EARTH_ENGINE_SEARCH_DATE_FORMAT
 from pm25ml.collectors.ned.data_retrievers import (
     NedDataRetriever,
 )
@@ -107,6 +108,19 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
 
         logger.debug("Found dataset with collection ID %s", collection_id)
 
+        logger.debug("Searching for granules for dataset %s", dataset_descriptor)
+        granules: list[earthaccess.DataGranule] = earthaccess.search_data(
+            short_name=dataset_descriptor.dataset_name,
+            temporal=(
+                dataset_descriptor.start_date.format(EARTH_ENGINE_SEARCH_DATE_FORMAT),
+                dataset_descriptor.end_date.format(EARTH_ENGINE_SEARCH_DATE_FORMAT),
+            ),
+            count=-1,
+            version=dataset_descriptor.dataset_version,
+        )
+
+        self._check_expected_granules(granules, dataset_descriptor)
+
         logger.debug("Starting subsetting job for collection ID %s", collection_id)
         job_response = self._init_subsetting_job(collection_id, dataset_descriptor)
         job_id = job_response.get("jobID")
@@ -122,8 +136,6 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
             job_id,
             len(links_details),
         )
-
-        self._check_expected_links(links_details, dataset_descriptor)
 
         https_file_system = fsspec.filesystem(
             "https",
@@ -156,9 +168,7 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
 
         if self._has_job_succeeded(job_status_response):
             return [
-                link
-                for link in job_status_response["links"]
-                if link.get("rel", "data") == "data"
+                link for link in job_status_response["links"] if link.get("rel", "data") == "data"
             ]
 
         msg = (
@@ -246,9 +256,7 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
         ]
         query_string = parse.urlencode(query_params)
 
-        return (
-            HarmonySubsetterDataRetriever.harmony_root + api_path + "?" + query_string
-        )
+        return HarmonySubsetterDataRetriever.harmony_root + api_path + "?" + query_string
 
     def _make_json_request(
         self,
@@ -260,43 +268,43 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
         response.raise_for_status()
         return response.json()
 
-    def _check_expected_links(
+    def _check_expected_granules(
         self,
-        links: _JobResultLinks,
+        granules: list[earthaccess.DataGranule],
         dataset_descriptor: NedDatasetDescriptor,
     ) -> None:
-        if len(links) == 0:
-            msg = f"No data links returned by Harmony for dataset {dataset_descriptor}."
+        if len(granules) == 0:
+            msg = f"No granules found for dataset {dataset_descriptor}."
             raise NedMissingDataError(msg)
 
         expected_days = dataset_descriptor.days_in_range
-        if len(links) != expected_days:
+        if len(granules) != expected_days:
             logger.warning(
-                "Expected %d data links for dataset %s, but found %d.",
+                "Expected %d granules for dataset %s, but found %d.",
                 expected_days,
                 dataset_descriptor,
-                len(links),
+                len(granules),
             )
 
-        if len(links) > expected_days:
+        if len(granules) > expected_days:
             msg = (
-                f"Found {len(links)} data links for dataset {dataset_descriptor}, "
+                f"Found {len(granules)} granules for dataset {dataset_descriptor}, "
                 f"but expected only {expected_days}. This may indicate an issue with the dataset."
             )
             raise NedMissingDataError(msg)
 
-        if len(links) < expected_days - 1:
+        if len(granules) < expected_days - 1:
             msg = (
                 f"We require {expected_days - 1} or {expected_days} (for {expected_days} days) "
-                f"data links for dataset {dataset_descriptor}, but found {len(links)}."
+                f"granules for dataset {dataset_descriptor}, but found {len(granules)}."
             )
             raise NedMissingDataError(
                 msg,
             )
 
         logger.debug(
-            "Found %d data links for dataset %s",
-            len(links),
+            "Found %d granules for dataset %s",
+            len(granules),
             dataset_descriptor,
         )
 
@@ -312,8 +320,7 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
     ) -> bool:
         return (
             job_status["status"] == "running"
-            and job_status["progress"]
-            < HarmonySubsetterDataRetriever.job_complete_percentage
+            and job_status["progress"] < HarmonySubsetterDataRetriever.job_complete_percentage
         )
 
     @staticmethod
@@ -322,8 +329,7 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
     ) -> bool:
         return (
             job_status["status"] == "successful"
-            and job_status["progress"]
-            == HarmonySubsetterDataRetriever.job_complete_percentage
+            and job_status["progress"] == HarmonySubsetterDataRetriever.job_complete_percentage
         )
 
 
