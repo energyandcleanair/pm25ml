@@ -306,8 +306,13 @@ map_to_env_list:
           value: key
           in: ${keys(env_map)}
           steps:
+            - build_entry:
+                assign:
+                  - entry:
+                      name: ${key}
+                      value: ${env_map[key]}
             - append:
                 assign:
-                  - env_list: ${list.concat(env_list, {"name": key, "value": env_map[key]})}
+                  - env_list: ${list.concat(env_list, entry)}
     - return_list:
         return: ${env_list}
