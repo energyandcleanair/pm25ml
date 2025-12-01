@@ -17,29 +17,8 @@ spec:
                 limits:
                   cpu: 8000m
                   memory: 16Gi
+              # Most of the env is defined in the workflow.yaml
               env:
-                - name: GCP_PROJECT
-                  value: vital-form-455413-p8
-                - name: INDIA_SHAPEFILE_ASSET
-                  value: projects/vital-form-455413-p8/assets/grid_india_10km_shapefile
-                - name: CSV_BUCKET_NAME
-                  value: crea-ee-csv-buffer
-                - name: INGEST_ARCHIVE_BUCKET_NAME
-                  value: crea-pm25ml-ingest-archive
-                - name: COMBINED_BUCKET_NAME
-                  value: crea-pm25ml-combined
-                - name: MODEL_STORAGE_BUCKET_NAME
-                  value: crea-pm25ml-models
-                - name: FINAL_RESULT_BUCKET_NAME
-                  value: crea-pm25ml-final-results
-                - name: SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX
-                  value: "^era5_land__.*$"
-                - name: TQDM_DISABLE
-                  value: "1"
-                - name: START_MONTH
-                  value: "2018-08-01"
-                - name: END_MONTH
-                  value: "2025-03-01"
                 - name: EARTHDATA_USERNAME
                   valueFrom:
                     secretKeyRef:

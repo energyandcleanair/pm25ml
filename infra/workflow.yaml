@@ -4,6 +4,7 @@ main:
     # Initialize environment and continue-from plumbing
     - init_env:
         assign:
+          # Secrets are configured for Cloud Run jobs in run.yaml and run-large.yaml
           - common_env:
               GCP_PROJECT: vital-form-455413-p8
               INDIA_SHAPEFILE_ASSET: projects/vital-form-455413-p8
@@ -15,10 +16,17 @@ main:
               SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX: "^era5_land__.*$"
               TQDM_DISABLE: "1"
               START_MONTH: "2018-08-01"
-              END_MONTH: "2025-03-01"
+              END_MONTH: "2025-10-01"
               RUNNING_IN_CLOUD_BATCH: "true"
           # Extract continue_from arg (string stage name); if empty, start at first step
           - continue_from: ${ default(map.get(args, "continue_from"), "collect_data_and_combine") }
+
+    # Convert common_env map to Cloud Run env list format [{name, value}, ...]
+    - build_env_list:
+        call: map_to_env_list
+        args:
+          env_map: ${common_env}
+        result: common_env_list
 
     # Single dispatcher: jump directly to requested starting step, else proceed from first
     - dispatch_continue_from:
@@ -60,6 +68,7 @@ main:
                     - python
                     - -m
                     - pm25ml.run.s01_fetch_and_combine
+                  env: ${common_env_list}
         result: run_job_result
 
     - generate_features:
@@ -111,6 +120,7 @@ main:
                     - python
                     - -m
                     - pm25ml.run.s03_sample_for_imputation
+                  env: ${common_env_list}
         result: run_job_result
 
     - check_if_training:
@@ -213,6 +223,7 @@ main:
                     - python
                     - -m
                     - pm25ml.run.s06_prep_for_full_model
+                  env: ${common_env_list}
         result: run_job_result
 
     - full_model_train:
@@ -229,6 +240,7 @@ main:
                     - python
                     - -m
                     - pm25ml.run.s07_train_full_model
+                  env: ${common_env_list}
         result: run_job_result
 
     - full_model_predict:
@@ -279,4 +291,23 @@ main:
                     - python
                     - -m
                     - pm25ml.run.s09_outputs
+                  env: ${common_env_list}
         result: run_job_result
+
+# Subworkflow to convert a map to Cloud Run env list format [{name, value}, ...]
+map_to_env_list:
+  params: [env_map]
+  steps:
+    - init:
+        assign:
+          - env_list: []
+    - iterate:
+        for:
+          value: key
+          in: ${keys(env_map)}
+          steps:
+            - append:
+                assign:
+                  - env_list: ${list.concat(env_list, {"name": key, "value": env_map[key]})}
+    - return_list:
+        return: ${env_list}
