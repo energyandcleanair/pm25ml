@@ -7,7 +7,7 @@ main:
           # Secrets are configured for Cloud Run jobs in run.yaml and run-large.yaml
           - common_env:
               GCP_PROJECT: vital-form-455413-p8
-              INDIA_SHAPEFILE_ASSET: projects/vital-form-455413-p8
+              INDIA_SHAPEFILE_ASSET: projects/vital-form-455413-p8/assets/grid_india_10km_shapefile
               CSV_BUCKET_NAME: crea-ee-csv-buffer
               INGEST_ARCHIVE_BUCKET_NAME: crea-pm25ml-ingest-archive
               COMBINED_BUCKET_NAME: crea-pm25ml-combined
