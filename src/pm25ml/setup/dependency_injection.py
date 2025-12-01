@@ -32,23 +32,30 @@ from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.combiners.recombiner.recombiner import Recombiner
 from pm25ml.feature_generation.generate import FeatureGenerator
-from pm25ml.imputation.from_model.full_predict_controller import FinalPredictionController
+from pm25ml.imputation.from_model.full_predict_controller import (
+    FinalPredictionController,
+)
 from pm25ml.imputation.from_model.imputation_controller import (
     ImputationController,
 )
-from pm25ml.imputation.spatial.daily_spatial_interpolator import DailySpatialInterpolator
-from pm25ml.imputation.spatial.spatial_imputation_manager import SpatialImputationManager
+from pm25ml.imputation.spatial.daily_spatial_interpolator import (
+    DailySpatialInterpolator,
+)
+from pm25ml.imputation.spatial.spatial_imputation_manager import (
+    SpatialImputationManager,
+)
 from pm25ml.logging import logger
 from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.sample.full_model_sampler import FullModelSampler
 from pm25ml.sample.imputation_sampler import ImputationSamplerDefinition
-from pm25ml.setup.date_params import TemporalConfig
-from pm25ml.setup.pipelines import define_pipelines
-from pm25ml.setup.pm25_filters import define_filters
-from pm25ml.setup.result_writers import define_result_writers
-from pm25ml.setup.samplers import ImputationStep, define_samplers
-from pm25ml.setup.training import build_model_ref
-from pm25ml.setup.training_full import build_full_model_ref
+from pm25ml.setup.ingestion.pipelines import define_pipelines
+from pm25ml.setup.ingestion.pm25_filters import define_filters
+from pm25ml.setup.models.feature_generator import generate_for_year
+from pm25ml.setup.models.samplers import ImputationStep, define_samplers
+from pm25ml.setup.models.training_full import build_full_model_ref
+from pm25ml.setup.models.training_impute import build_model_ref
+from pm25ml.setup.results.result_writers import define_result_writers
+from pm25ml.setup.temporal_config import TemporalConfig
 from pm25ml.training.full_model_pipeline import FullModelPipeline
 from pm25ml.training.imputation_model_pipeline import ImputationModelPipeline
 from pm25ml.training.model_storage import ModelStorage
@@ -326,6 +333,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         temporal_config=temporal_config,
         input_data_artifact=data_artifacts_container.spatially_imputed_stage.provided,
         output_data_artifact=data_artifacts_container.generated_features_stage.provided,
+        generate_for_year=generate_for_year,
     )
 
     imputation_samplers = providers.Singleton(
@@ -366,12 +374,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     )
 
     ml_model_trainer_factory = providers.Factory(
-        lambda *,
-        model_reference,
-        combined_storage,
-        model_store,
-        n_jobs,
-        input_data_artifact: ImputationModelPipeline(
+        lambda *, model_reference, combined_storage, model_store, n_jobs, input_data_artifact: ImputationModelPipeline(
             combined_storage=combined_storage,
             data_ref=model_reference,
             model_store=model_store,
@@ -498,10 +501,16 @@ def init_dependencies_from_env() -> Pm25mlContainer:
         ),
     )
 
-    logger.info(f"Using local training: {container.config.take_mini_training_sample_selector()}")
+    logger.info(
+        f"Using local training: {container.config.take_mini_training_sample_selector()}"
+    )
 
-    container.config.start_month.from_env("START_MONTH", as_=lambda x: arrow.get(x, "YYYY-MM-DD"))
-    container.config.end_month.from_env("END_MONTH", as_=lambda x: arrow.get(x, "YYYY-MM-DD"))
+    container.config.start_month.from_env(
+        "START_MONTH", as_=lambda x: arrow.get(x, "YYYY-MM-DD")
+    )
+    container.config.end_month.from_env(
+        "END_MONTH", as_=lambda x: arrow.get(x, "YYYY-MM-DD")
+    )
 
     container.config.spatial_computation_value_column_regex.from_env(
         "SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX",

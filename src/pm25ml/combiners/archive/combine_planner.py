@@ -22,7 +22,7 @@ from pm25ml.collectors.collector import UploadResult
 from pm25ml.collectors.export_pipeline import MissingDataHeuristic
 from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pm25ml.hive_path import HivePath
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 @dataclass(frozen=True)
@@ -172,10 +172,16 @@ class _DatasetResultGroup:
         ):
             return "type"
 
-        if all(result.pipeline_config.hive_path.metadata.get("month") for result in self.results):
+        if all(
+            result.pipeline_config.hive_path.metadata.get("month")
+            for result in self.results
+        ):
             return "month"
 
-        if all(result.pipeline_config.hive_path.metadata.get("year") for result in self.results):
+        if all(
+            result.pipeline_config.hive_path.metadata.get("year")
+            for result in self.results
+        ):
             return "year"
 
         msg = (
@@ -214,7 +220,8 @@ class _DatasetResultGroup:
                 results=[
                     result
                     for result in results
-                    if result.pipeline_config.hive_path.metadata.get("dataset") == dataset
+                    if result.pipeline_config.hive_path.metadata.get("dataset")
+                    == dataset
                 ],
             )
             for dataset in dataset_names

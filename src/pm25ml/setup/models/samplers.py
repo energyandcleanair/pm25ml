@@ -9,7 +9,7 @@ from pm25ml.sample.imputation_sampler import (
     ImputationSamplerDefinition,
     SpatialTemporalImputationSampler,
 )
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 @dataclass

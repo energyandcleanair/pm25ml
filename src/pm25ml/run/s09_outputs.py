@@ -7,8 +7,11 @@ from pm25ml.collectors.grid import Grid
 from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.results.final_result_writer import FinalResultWriter
-from pm25ml.setup.date_params import TemporalConfig
-from pm25ml.setup.dependency_injection import Pm25mlContainer, init_dependencies_from_env
+from pm25ml.setup.dependency_injection import (
+    Pm25mlContainer,
+    init_dependencies_from_env,
+)
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 @inject
@@ -19,7 +22,9 @@ def _main(
     combined_storage: CombinedStorage = Provide[Pm25mlContainer.combined_storage],
     temporal_config: TemporalConfig = Provide[Pm25mlContainer.temporal_config],
     grid: Grid = Provide[Pm25mlContainer.in_memory_grid],
-    final_result_writers: list[FinalResultWriter] = Provide[Pm25mlContainer.final_result_writers],
+    final_result_writers: list[FinalResultWriter] = Provide[
+        Pm25mlContainer.final_result_writers
+    ],
 ) -> None:
     data_from_storage = (
         combined_storage.scan_stage(final_data_artifact.stage)

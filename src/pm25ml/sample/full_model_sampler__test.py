@@ -11,7 +11,7 @@ from morefs.memory import MemFS
 from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.sample.full_model_sampler import FullModelSampler
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 DESTINATION_BUCKET = "test_bucket"
@@ -64,7 +64,9 @@ def test__full_model_sampler__single_month__filters_nulls(
 
     sampler.sample()
 
-    result = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    result = combined_storage.read_dataframe(
+        f"stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
     assert_frame_equal(
         result.sort(["grid_id", "date"]),
         DataFrame(
@@ -146,7 +148,9 @@ def test__full_model_sampler__all_null_column__writes_empty_dataset(
     )
     sampler.sample()
 
-    result = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    result = combined_storage.read_dataframe(
+        f"stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
     assert result.height == 0
     # Ensure schema preserved (same columns present)
     assert result.columns == ["grid_id", "date", "col_1"]

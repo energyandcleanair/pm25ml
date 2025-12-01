@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING
 
 from arrow import Arrow
 
-from pm25ml.collectors.export_pipeline import MissingDataHeuristic, PipelineConsumerBehaviour
+from pm25ml.collectors.export_pipeline import (
+    MissingDataHeuristic,
+    PipelineConsumerBehaviour,
+)
 from pm25ml.collectors.misc.grid_export_pipeline import GridExportPipeline
 from pm25ml.collectors.ned.data_reader_merra import MerraDataReader
 from pm25ml.collectors.ned.data_reader_omno2d import Omno2dReader
@@ -24,7 +27,7 @@ if TYPE_CHECKING:
     from pm25ml.collectors.grid import Grid
     from pm25ml.collectors.ned.ned_export_pipeline import NedPipelineConstructor
     from pm25ml.collectors.pm25.pm25_pipeline import Pm25MeasurementsPipelineConstructor
-    from pm25ml.setup.date_params import TemporalConfig
+    from pm25ml.setup.temporal_config import TemporalConfig
 
 
 MODIS_LAND_ALLOW_MISSING_FROM_YEAR = Arrow.now().year - 2
@@ -76,11 +79,13 @@ def define_pipelines(  # noqa: PLR0913
                     year=year,
                 ),
                 result_subpath=f"country=india/dataset=modis_land_cover/year={year}",
-                pipeline_consumer_behaviour=PipelineConsumerBehaviour(
-                    missing_data_heuristic=MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE,
-                )
-                if year > MODIS_LAND_ALLOW_MISSING_FROM_YEAR
-                else PipelineConsumerBehaviour.default(),
+                pipeline_consumer_behaviour=(
+                    PipelineConsumerBehaviour(
+                        missing_data_heuristic=MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE,
+                    )
+                    if year > MODIS_LAND_ALLOW_MISSING_FROM_YEAR
+                    else PipelineConsumerBehaviour.default()
+                ),
             ),
         ]
 
@@ -213,10 +218,14 @@ def define_pipelines(  # noqa: PLR0913
         ]
 
     yearly_pipelines = [
-        pipeline for year in temporal_config.years for pipeline in _yearly_pipelines(year)
+        pipeline
+        for year in temporal_config.years
+        for pipeline in _yearly_pipelines(year)
     ]
     monthly_pipelines = [
-        pipeline for month in temporal_config.months for pipeline in _monthly_pipelines(month)
+        pipeline
+        for month in temporal_config.months
+        for pipeline in _monthly_pipelines(month)
     ]
     static_pipelines = _static_pipelines()
 

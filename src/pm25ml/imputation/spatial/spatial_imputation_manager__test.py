@@ -3,13 +3,15 @@ from unittest.mock import MagicMock
 from arrow import Arrow
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.hive_path import HivePath
-from pm25ml.imputation.spatial.spatial_imputation_manager import SpatialImputationManager
+from pm25ml.imputation.spatial.spatial_imputation_manager import (
+    SpatialImputationManager,
+)
 import polars as pl
 from pyarrow.parquet import FileMetaData
 from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pyarrow import schema
 
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 INPUT_DATA_ARTIFACT = DataArtifactRef(stage="combined_monthly")
 OUTPUT_DATA_ARTIFACT = DataArtifactRef(stage="era5_spatially_imputed")
@@ -58,7 +60,9 @@ def mock_imputer():
 
 @pytest.fixture
 def mock_imputer_fills_missing(mock_imputer, fake_data_result_map):
-    mock_imputer.impute.side_effect = lambda df: fake_data_result_map[df["month"].unique()[0]]
+    mock_imputer.impute.side_effect = lambda df: fake_data_result_map[
+        df["month"].unique()[0]
+    ]
     return mock_imputer
 
 
@@ -98,7 +102,9 @@ def test__impute__all_months_available__processes_all_months(
 
     combined_storage_mock.scan_stage.return_value = fake_data_with_missing.lazy()
     combined_storage_mock.does_dataset_exist.side_effect = lambda ds_name: False
-    combined_storage_mock.read_dataframe_metadata.side_effect = create_mock_file_metadata
+    combined_storage_mock.read_dataframe_metadata.side_effect = (
+        create_mock_file_metadata
+    )
 
     # Instantiate the manager
     manager = SpatialImputationManager(
@@ -119,7 +125,9 @@ def test__impute__all_months_available__processes_all_months(
     combined_storage_mock.scan_stage.assert_called_once_with("combined_monthly")
     assert_df_in_calls(
         combined_storage_mock.write_to_destination,
-        fake_data_result_map["2023-01"].select("grid_id", "date", pl.col("value_column_regex")),
+        fake_data_result_map["2023-01"].select(
+            "grid_id", "date", pl.col("value_column_regex")
+        ),
         HivePath.from_args(
             stage="era5_spatially_imputed",
             month="2023-01",
@@ -127,7 +135,9 @@ def test__impute__all_months_available__processes_all_months(
     )
     assert_df_in_calls(
         combined_storage_mock.write_to_destination,
-        fake_data_result_map["2023-02"].select("grid_id", "date", pl.col("value_column_regex")),
+        fake_data_result_map["2023-02"].select(
+            "grid_id", "date", pl.col("value_column_regex")
+        ),
         HivePath.from_args(
             stage="era5_spatially_imputed",
             month="2023-02",
@@ -144,7 +154,11 @@ def test__impute__missing_months__raises_value_error(
     combined_storage_mock = MagicMock()
 
     # Mock data
-    months = [Arrow(2023, 1, 1), Arrow(2023, 2, 1), Arrow(2023, 3, 1)]  # Add an extra month
+    months = [
+        Arrow(2023, 1, 1),
+        Arrow(2023, 2, 1),
+        Arrow(2023, 3, 1),
+    ]  # Add an extra month
 
     combined_storage_mock.scan_stage.return_value = fake_data_with_missing.lazy()
     combined_storage_mock.does_dataset_exist.side_effect = lambda ds_name: False
@@ -184,7 +198,9 @@ def test__impute__some_months_already_uploaded__skips_those_months(
         lambda ds_name: ds_name
         == HivePath.from_args(stage="era5_spatially_imputed", month="2023-01")
     )
-    combined_storage_mock.read_dataframe_metadata.side_effect = create_mock_file_metadata
+    combined_storage_mock.read_dataframe_metadata.side_effect = (
+        create_mock_file_metadata
+    )
 
     # Instantiate the manager
     manager = SpatialImputationManager(
@@ -205,7 +221,9 @@ def test__impute__some_months_already_uploaded__skips_those_months(
     combined_storage_mock.scan_stage.assert_called_once_with("combined_monthly")
     assert_df_in_calls(
         combined_storage_mock.write_to_destination,
-        fake_data_result_map["2023-02"].select("grid_id", "date", pl.col("value_column_regex")),
+        fake_data_result_map["2023-02"].select(
+            "grid_id", "date", pl.col("value_column_regex")
+        ),
         HivePath.from_args(
             stage="era5_spatially_imputed",
             month="2023-02",

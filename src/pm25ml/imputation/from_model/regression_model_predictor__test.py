@@ -3,10 +3,12 @@ import polars as pl
 import numpy as np
 from unittest.mock import MagicMock, Mock
 from pm25ml.combiners.data_artifact import DataArtifactRef
-from pm25ml.imputation.from_model.regression_model_predictor import RegressionModelPredictor
+from pm25ml.imputation.from_model.regression_model_predictor import (
+    RegressionModelPredictor,
+)
 from pm25ml.model_reference import ImputationModelReference
 from pm25ml.training.model_storage import LoadedValidatedModel
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 from pm25ml.combiners.combined_storage import CombinedStorage
 from morefs.memory import MemFS
 from polars.testing import assert_frame_equal
@@ -37,7 +39,9 @@ def mock_loaded_validated_model():
     model = MagicMock(spec=LoadedValidatedModel)
     model.cv_results = {"test_r2": np.array([0.8, 0.85, 0.9])}
     mock_predictor = MagicMock()
-    mock_predictor.predict = MagicMock(return_value=np.array([1.0, 2.0, 1.0, 2.0, 1.0, 2.0]))
+    mock_predictor.predict = MagicMock(
+        return_value=np.array([1.0, 2.0, 1.0, 2.0, 1.0, 2.0])
+    )
     model.model = mock_predictor
     return model
 
@@ -125,14 +129,18 @@ def test__impute__raises_error_on_high_score(
         regression_model_imputer_with_data.predict()
 
 
-def test__impute__passes_on_valid_score(regression_model_imputer_with_data, mock_model_reference):
+def test__impute__passes_on_valid_score(
+    regression_model_imputer_with_data, mock_model_reference
+):
     # Set a valid range and ensure no exceptions are raised
     mock_model_reference.min_r2_score = 0.7
     mock_model_reference.max_r2_score = 0.9
     regression_model_imputer_with_data.predict()
 
 
-def test__impute__writes_results_correctly_with_data(regression_model_imputer_with_data):
+def test__impute__writes_results_correctly_with_data(
+    regression_model_imputer_with_data,
+):
     regression_model_imputer_with_data.predict()
 
     # Verify the results are written by reading them using CombinedStorage
@@ -150,12 +158,35 @@ def test__impute__writes_results_correctly_with_data(regression_model_imputer_wi
                     "2023-01-03",
                     "2023-01-03",
                 ],
-                "target_col__imputed_flag": pl.Series([1, 1, 0, 0, 1, 0], dtype=pl.Int32),
+                "target_col__imputed_flag": pl.Series(
+                    [1, 1, 0, 0, 1, 0], dtype=pl.Int32
+                ),
                 "target_col__predicted": [1.0, 2.0, 1.0, 2.0, 1.0, 2.0],
                 "target_col__imputed": [1.0, 2.0, 1.0, 1.0, 1.0, 2.0],
-                "target_col__score": [1.0 * 0.85, 2.0 * 0.85, 1.0, 1.0, 1.0 * 0.85, 2.0],
-                "target_col__share_imputed_across_all_grids": [1.0, 1.0, 0.0, 0.0, 0.5, 0.5],
-                "target_col__imputed_r7d": [1.0, 2.0, 1.0, 1.5, 1.0, 1.6666666666666667],
+                "target_col__score": [
+                    1.0 * 0.85,
+                    2.0 * 0.85,
+                    1.0,
+                    1.0,
+                    1.0 * 0.85,
+                    2.0,
+                ],
+                "target_col__share_imputed_across_all_grids": [
+                    1.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.5,
+                    0.5,
+                ],
+                "target_col__imputed_r7d": [
+                    1.0,
+                    2.0,
+                    1.0,
+                    1.5,
+                    1.0,
+                    1.6666666666666667,
+                ],
             }
         ),
         "2023-02": pl.DataFrame(
@@ -169,13 +200,36 @@ def test__impute__writes_results_correctly_with_data(regression_model_imputer_wi
                     "2023-02-03",
                     "2023-02-03",
                 ],
-                "target_col__imputed_flag": pl.Series([1, 1, 0, 0, 1, 0], dtype=pl.Int32),
+                "target_col__imputed_flag": pl.Series(
+                    [1, 1, 0, 0, 1, 0], dtype=pl.Int32
+                ),
                 "target_col__predicted": [1.0, 2.0, 1.0, 2.0, 1.0, 2.0],
                 "target_col__imputed": [1.0, 2.0, 1.0, 1.0, 1.0, 2.0],
-                "target_col__score": [1.0 * 0.85, 2.0 * 0.85, 1.0, 1.0, 1.0 * 0.85, 2.0],
-                "target_col__share_imputed_across_all_grids": [1.0, 1.0, 0.0, 0.0, 0.5, 0.5],
+                "target_col__score": [
+                    1.0 * 0.85,
+                    2.0 * 0.85,
+                    1.0,
+                    1.0,
+                    1.0 * 0.85,
+                    2.0,
+                ],
+                "target_col__share_imputed_across_all_grids": [
+                    1.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.5,
+                    0.5,
+                ],
                 # Second month has different imputed_r7d values, as it includes rolling imputation from the first month
-                "target_col__imputed_r7d": [1.0, 1.75, 1.0, 1.6, 1.0, 1.6666666666666667],
+                "target_col__imputed_r7d": [
+                    1.0,
+                    1.75,
+                    1.0,
+                    1.6,
+                    1.0,
+                    1.6666666666666667,
+                ],
             }
         ),
     }

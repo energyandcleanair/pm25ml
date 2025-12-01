@@ -7,7 +7,7 @@ import polars as pl
 from arrow import Arrow
 
 from pm25ml.logging import logger
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 BASE_URI = "https://api.energyandcleanair.org"
 
@@ -41,7 +41,10 @@ class CreaMeasurementsApiDataSource:
             # is inclusive, not exclusive
 
             month_ranges = [
-                (m.format("YYYY-MM-DD"), m.shift(months=1).shift(days=-1).format("YYYY-MM-DD"))
+                (
+                    m.format("YYYY-MM-DD"),
+                    m.shift(months=1).shift(days=-1).format("YYYY-MM-DD"),
+                )
                 for m in self.temporal_config.months
             ]
 
@@ -72,7 +75,9 @@ class CreaMeasurementsApiDataSource:
                         pl.col("value").quantile(0.75).alias("station_q3"),
                     ],
                 )
-                .with_columns((pl.col("station_q3") - pl.col("station_q1")).alias("station_iqr"))
+                .with_columns(
+                    (pl.col("station_q3") - pl.col("station_q1")).alias("station_iqr")
+                )
             )
 
             self._station_stats_cache = results.collect()

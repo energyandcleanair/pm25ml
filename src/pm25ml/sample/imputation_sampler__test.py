@@ -10,7 +10,7 @@ from pm25ml.sample.imputation_sampler import (
     SpatialTemporalImputationSampler,
     ImputationSamplerDefinition,
 )
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 from morefs.memory import MemFS
 from arrow import get
 
@@ -85,7 +85,9 @@ def test__imputation_sampler__process_month__correct_sampling(
     sampler.sample()
 
     # Read the sampled data
-    sampled_data = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    sampled_data = combined_storage.read_dataframe(
+        f"stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
 
     assert_frame_equal(
         sampled_data,
@@ -140,7 +142,9 @@ def test__imputation_sampler__process_month_multiple_grids__correct_sampling(
     sampler.sample()
 
     # Read the sampled data
-    sampled_data = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    sampled_data = combined_storage.read_dataframe(
+        f"stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
 
     assert_frame_equal(
         sampled_data,

@@ -7,7 +7,7 @@ import polars as pl
 from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.logging import logger
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 class FullModelSampler:

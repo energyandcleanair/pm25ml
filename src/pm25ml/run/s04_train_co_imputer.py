@@ -2,8 +2,11 @@
 
 from dependency_injector.wiring import Provide, Provider, inject
 
-from pm25ml.setup.dependency_injection import Pm25mlContainer, init_dependencies_from_env
-from pm25ml.setup.injection_type_helpers import ModelTrainerFactory
+from pm25ml.setup.dependency_injection import (
+    Pm25mlContainer,
+    init_dependencies_from_env,
+)
+from pm25ml.setup.types import ModelTrainerFactory
 
 
 @inject

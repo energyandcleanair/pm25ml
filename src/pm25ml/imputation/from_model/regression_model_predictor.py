@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from pm25ml.combiners.combined_storage import CombinedStorage
     from pm25ml.combiners.data_artifact import DataArtifactRef
     from pm25ml.model_reference import ModelReference
-    from pm25ml.setup.date_params import TemporalConfig
+    from pm25ml.setup.temporal_config import TemporalConfig
     from pm25ml.training.model_storage import LoadedValidatedModel
 
 
@@ -174,7 +174,9 @@ class RegressionModelPredictor:
 
         with_aggregates = with_predicted_results.with_columns(
             **{
-                imputed_col_name: pl.when(is_imputed).then(predicted_col).otherwise(target_col),
+                imputed_col_name: pl.when(is_imputed)
+                .then(predicted_col)
+                .otherwise(target_col),
                 score_col_name: pl.when(is_imputed)
                 .then(predicted_col * average_cv_score)
                 .otherwise(target_col),

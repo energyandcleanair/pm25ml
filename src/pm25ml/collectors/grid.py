@@ -168,6 +168,7 @@ class Grid:
         joined_id_cols = ["x", "y", "time", "grid_id"]
 
         value_cols = [c for c in joined_df.columns if c not in joined_id_cols]
+        # We need it in float32 to avoid a roundoff error causing extra points in the y-axis.
         joined_df["x"] = joined_df["x"].astype(np.float32)
         joined_df["y"] = joined_df["y"].astype(np.float32)
         for col in value_cols:

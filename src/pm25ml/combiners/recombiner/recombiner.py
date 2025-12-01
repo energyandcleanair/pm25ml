@@ -10,7 +10,7 @@ from arrow import Arrow
 from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.logging import logger
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 class Recombiner:
@@ -116,7 +116,9 @@ class Recombiner:
             stage_dfs = self._read_dfs_to_merge(stages, month)
 
             # Combine all DataFrames
-            combined_df = self._combine_all(stage_dfs, overwrite_columns=overwrite_columns)
+            combined_df = self._combine_all(
+                stage_dfs, overwrite_columns=overwrite_columns
+            )
 
             # Write the combined DataFrame to storage
             self.combined_storage.write_to_destination(
@@ -177,7 +179,9 @@ class Recombiner:
             )
         return combined_df
 
-    def _needs_recombining(self, month: Arrow, stages: Collection[DataArtifactRef]) -> bool:
+    def _needs_recombining(
+        self, month: Arrow, stages: Collection[DataArtifactRef]
+    ) -> bool:
         logger.debug(
             f"Checking if data for month {month.format('YYYY-MM')} needs to be recombined.",
         )
@@ -199,7 +203,9 @@ class Recombiner:
 
         return False
 
-    def _validate_combined(self, month: Arrow, stages: Collection[DataArtifactRef]) -> None:
+    def _validate_combined(
+        self, month: Arrow, stages: Collection[DataArtifactRef]
+    ) -> None:
         month_short = month.format("YYYY-MM")
 
         # Collect expected columns from all stages

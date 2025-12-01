@@ -1,6 +1,9 @@
 from arrow import Arrow
 from assertpy import assert_that
-from pm25ml.collectors.export_pipeline import MissingDataHeuristic, PipelineConsumerBehaviour
+from pm25ml.collectors.export_pipeline import (
+    MissingDataHeuristic,
+    PipelineConsumerBehaviour,
+)
 from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pm25ml.combiners.archive.combine_planner import CombinePlan, CombinePlanner
 from pm25ml.collectors.collector import DataCompleteness, UploadResult, PipelineConfig
@@ -8,7 +11,7 @@ from pm25ml.hive_path import HivePath
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 def test__CombinePlan__month_id():
@@ -28,9 +31,9 @@ def test__CombinePlan__expected_rows():
         expected_columns={"col1", "col2"},
     )
 
-    assert desc.expected_rows == VALID_COUNTRIES["india"] * 31, (
-        "Expected rows should be equal to the number of days in the month"
-    )
+    assert (
+        desc.expected_rows == VALID_COUNTRIES["india"] * 31
+    ), "Expected rows should be equal to the number of days in the month"
 
 
 def test__CombinePlan__days_in_month():

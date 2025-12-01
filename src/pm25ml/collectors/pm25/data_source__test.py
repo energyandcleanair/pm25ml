@@ -12,16 +12,20 @@ from unittest.mock import patch
 from polars.testing import assert_frame_equal
 
 from pm25ml.collectors.pm25.data_source import CreaMeasurementsApiDataSource
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 @pytest.fixture()
 def temporal_config_two_months() -> TemporalConfig:
     """Temporal configuration spanning two months (Jan & Feb 2023)."""
-    return TemporalConfig(start_date=arrow.get("2023-01-01"), end_date=arrow.get("2023-02-28"))
+    return TemporalConfig(
+        start_date=arrow.get("2023-01-01"), end_date=arrow.get("2023-02-28")
+    )
 
 
-def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_two_months):
+def test__fetch_station_stats__aggregates_quantiles_and_caches(
+    temporal_config_two_months,
+):
     """It should compute per-station q1, q3 and IQR only once (cached on 2nd call)."""
 
     # Data chosen so quartiles fall exactly on existing values (avoids interpolation ambiguity)
@@ -42,7 +46,9 @@ def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_t
         second = ds.fetch_station_stats()  # Should use cache
 
         # Caching assertions
-        assert mock_scan_csv.call_count == 1, "scan_csv should be called only once due to caching"
+        assert (
+            mock_scan_csv.call_count == 1
+        ), "scan_csv should be called only once due to caching"
         assert first is second, "Cached DataFrame instance should be reused"
 
         # Ensure URLs were generated for each month in the temporal config
@@ -64,7 +70,9 @@ def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_t
         assert_frame_equal(actual, expected)
 
 
-def test__fetch_stations_for_india__parses_coordinates_and_caches(temporal_config_two_months):
+def test__fetch_stations_for_india__parses_coordinates_and_caches(
+    temporal_config_two_months,
+):
     """It should parse coordinate strings into longitude/latitude and cache the result."""
 
     stations_df = pl.DataFrame(
@@ -88,7 +96,9 @@ def test__fetch_stations_for_india__parses_coordinates_and_caches(temporal_confi
         first = ds.fetch_stations_for_india()
         second = ds.fetch_stations_for_india()
 
-        assert mock_read_csv.call_count == 1, "read_csv should be called only once due to caching"
+        assert (
+            mock_read_csv.call_count == 1
+        ), "read_csv should be called only once due to caching"
         assert first is second
 
         # Columns should be limited to id, longitude, latitude
@@ -127,6 +137,10 @@ def test__fetch_station_data__casts_types(temporal_config_two_months):
         assert result.schema["value"].__class__.__name__ == "Float32"
 
         # Value checks
-        assert result.select(pl.col("date").min()).item() == arrow.get("2023-01-01").date()
-        assert result.select(pl.col("date").max()).item() == arrow.get("2023-01-02").date()
+        assert (
+            result.select(pl.col("date").min()).item() == arrow.get("2023-01-01").date()
+        )
+        assert (
+            result.select(pl.col("date").max()).item() == arrow.get("2023-01-02").date()
+        )
         assert result.height == 2

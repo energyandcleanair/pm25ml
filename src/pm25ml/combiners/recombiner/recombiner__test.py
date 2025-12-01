@@ -8,7 +8,7 @@ from pm25ml.combiners.recombiner.recombiner import Recombiner
 from pm25ml.hive_path import HivePath
 from morefs.memory import MemFS
 
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 OUTPUT_DATA_ARTIFACT = DataArtifactRef(stage="recombined_stage")
 INPUT_STAGE_1_NAME = "stage1"
@@ -141,7 +141,9 @@ def mock_combined_storage_with_overlapping_columns(in_memory_combined_storage):
 
 @pytest.mark.usefixtures("mock_combined_storage_with_data")
 def test__recombine__valid_input__combines_data(recombiner, in_memory_combined_storage):
-    recombiner.recombine([INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT], overwrite_columns=True)
+    recombiner.recombine(
+        [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT], overwrite_columns=True
+    )
 
     # Validate January 2023
     result_jan = in_memory_combined_storage.read_dataframe(
@@ -194,7 +196,9 @@ def test__recombine__existing_dataset_correct_columns__only_updates_one_month(
     )
 
     # Run recombine
-    recombiner.recombine([INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT], overwrite_columns=False)
+    recombiner.recombine(
+        [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT], overwrite_columns=False
+    )
 
     # Validate that the dataset remains unchanged
     result = in_memory_combined_storage.read_dataframe(

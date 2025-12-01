@@ -10,9 +10,11 @@ from arrow import Arrow
 from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
-from pm25ml.imputation.spatial.daily_spatial_interpolator import DailySpatialInterpolator
+from pm25ml.imputation.spatial.daily_spatial_interpolator import (
+    DailySpatialInterpolator,
+)
 from pm25ml.logging import logger
-from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.temporal_config import TemporalConfig
 
 
 class SpatialImputationValidationError(Exception):
@@ -104,9 +106,7 @@ class SpatialImputationManager:
             actual_length = imputed_month.select(pl.len()).to_series()[0]
 
             if actual_length != expected_length:
-                msg = (
-                    f"Imputed month {month} has length {actual_length}, expected {expected_length}."
-                )
+                msg = f"Imputed month {month} has length {actual_length}, expected {expected_length}."
                 raise ValueError(msg)
 
             self.combined_storage.write_to_destination(
@@ -133,16 +133,20 @@ class SpatialImputationManager:
 
             deque(results)
 
-    def _identify_months_to_upload(self, expected_columns: Collection[str]) -> Collection[str]:
+    def _identify_months_to_upload(
+        self, expected_columns: Collection[str]
+    ) -> Collection[str]:
         with ThreadPoolExecutor() as executor:
             months_to_upload = list(
                 executor.map(
-                    lambda month: month
-                    if self._needs_upload(
-                        month=month,
-                        expected_columns=expected_columns,
-                    )
-                    else None,
+                    lambda month: (
+                        month
+                        if self._needs_upload(
+                            month=month,
+                            expected_columns=expected_columns,
+                        )
+                        else None
+                    ),
                     self.months_as_ids,
                 ),
             )
