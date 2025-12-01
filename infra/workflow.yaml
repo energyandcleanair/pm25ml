@@ -16,7 +16,7 @@ main:
               SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX: "^era5_land__.*$"
               TQDM_DISABLE: "1"
               START_MONTH: "2018-08-01"
-              END_MONTH: "2025-10-01"
+              END_MONTH: "2025-09-01"
               RUNNING_IN_CLOUD_BATCH: "true"
           # Extract continue_from arg (string stage name); if empty, start at first step
           - continue_from: ${ default(map.get(args, "continue_from"), "collect_data_and_combine") }
