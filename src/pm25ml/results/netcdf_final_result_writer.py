@@ -1,6 +1,7 @@
 """Writer for putting final results to a NetCDF file."""
 
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -79,7 +80,8 @@ class NetCdfResultWriter(FinalResultWriter):
         # Direct streaming to remote filesystems isn't supported by h5netcdf/netcdf4 engines.
         # Using a local temp file ensures compatibility and low memory overhead.
         with tempfile.TemporaryDirectory(prefix="pm25ml_netcdf_") as tmpdir:
-            filename = f"{self.file_prefix}.nc"
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+            filename = f"{self.file_prefix}_{timestamp}.nc"
             tmp_path = Path(tmpdir) / filename
 
             compression_args: dict[str, Any] = {
@@ -88,7 +90,9 @@ class NetCdfResultWriter(FinalResultWriter):
                 "chunksizes": (16, 82, 72),
                 "shuffle": True,
             }
-            encoding: dict[str, dict[str, Any]] = dict.fromkeys(ds.data_vars, compression_args)
+            encoding: dict[str, dict[str, Any]] = dict.fromkeys(
+                ds.data_vars, compression_args
+            )
 
             # Persist to NetCDF using the h5netcdf engine (netCDF4-compatible)
             ds.to_netcdf(
