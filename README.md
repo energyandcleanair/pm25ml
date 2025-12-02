@@ -4,10 +4,7 @@ The aim of this project is to regularly produce raster PM2.5 predictions at a 10
 India. It features a two-stage machine learning model for daily PM2.5 predictions.
 
 Based on *[Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality]*
-(developed and published by researchers at Stanford University and collaborators).
-This paper created results from 2005-2023 which can be [downloaded from Zenodo].
-
-Reference code (under `reference`) is forked from [`ayako-kawano/pm_prediction`](https://github.com/ayako-kawano/pm_prediction).
+(developed and published by Ayako Kawano other researchers at Stanford University and collaborators).
 
 ## Project layout
 
@@ -412,31 +409,23 @@ flowchart TB
   model --> packaged_model
 ```
 
+## Licensing
+
+The core project is licensed under [MIT](LICENSE.md).
+
+Third-party data in `assets/` and the bundled NASA test datasets have separate
+licenses. `reference/` files do not have a license. Details are documented in 
+the [NOTICE](NOTICE.md) file.
+
 ## Citations
 
 ### Models
 
-Kawano, Ayako, Makoto Kelp, Minghao Qiu, Kirat Singh, Eeshan Chaturvedi, Sunil Dahiya,
-Inés Azevedo, and Marshall Burke. "Improved daily PM2. 5 estimates in India reveal inequalities in
-recent enhancement of air quality." Science Advances 11, no. 4 (2025): eadq1071.
+Kawano, A., Kelp, M., Qiu, M., Singh, K., Chaturvedi, E., Dahiya, S., … Burke, M. (2025). Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality. Science Advances, 11(4), eadq1071. https://doi.org/10.1126/sciadv.adq1071
 
-### Bundled test datasets
+### Datasets
 
-#### `M2T1NXAER.5.12.4_MERRA2_400.tavg1_2d_aer_Nx.20230101_TOTEXTTAU_subsetted.nc4`
-
-NASA Global Modeling and Assimilation Office (GMAO). (2015).
-*MERRA-2 tavg1_2d_aer_Nx: Aerosol Diagnostics, Hourly 0.5° × 0.625°, V5.12.4 (M2T1NXAER)* [Data set].
-Goddard Earth Sciences Data and Information Services Center (GES DISC), NASA GSFC.
-https://doi.org/10.5067/KLICLTZ8EM9D  
-(Accessed 24 Jun 2025; licence — CC-0 1.0. NASA does not endorse this software.)
-
-#### `OMI-Aura_L3-OMNO2d_2023m0111_v003-2023m0223t191034.he5`
-
-NASA Goddard Space Flight Center. (2023).
-*OMI/Aura NO₂ Cloud-Screened Total and Tropospheric Column L3 Global Gridded 0.25° × 0.25° V003* (OMNO2d) [Data set].
-NASA Goddard Earth Sciences Data and Information Services Center (GES DISC).
-https://doi.org/10.5067/Aura/OMI/DATA3002  
-(Accessed 24 Jun 2025; licence — CC-0 1.0. NASA does not endorse this software.)
+Kawano, A., Kelp, M., Qiu, M., Singh, K., Chaturvedi, E., DAHIYA, S., Azevedo, I., & Burke, M. (2024). High-Quality Daily PM2.5 Datasets for India at 10 km Resolution (Version 2) [Data set]. Science Advances. https://doi.org/10.5281/zenodo.13694585
 
 [Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality]: https://www.science.org/doi/10.1126/sciadv.adq1071
 [downloaded from Zenodo]: https://zenodo.org/records/13694585
