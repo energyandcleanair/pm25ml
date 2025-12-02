@@ -4,7 +4,7 @@ The aim of this project is to regularly produce raster PM2.5 predictions at a 10
 India. It features a two-stage machine learning model for daily PM2.5 predictions.
 
 Based on *[Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality]*
-(developed and published by Ayako Kawano other researchers at Stanford University and collaborators).
+(developed and published by Ayako Kawano, other researchers at Stanford University, and collaborators).
 
 ## Project layout
 
