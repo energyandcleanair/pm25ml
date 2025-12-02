@@ -91,7 +91,7 @@ class NetCdfResultWriter(FinalResultWriter):
                 "shuffle": True,
             }
             encoding: dict[str, dict[str, Any]] = dict.fromkeys(
-                ds.data_vars, compression_args
+                ds.data_vars, compression_args,
             )
 
             # Persist to NetCDF using the h5netcdf engine (netCDF4-compatible)
