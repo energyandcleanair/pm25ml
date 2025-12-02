@@ -1,6 +1,6 @@
-# PM2.5 predictions in India
+# PM2.5 estimates in India
 
-The aim of this project is to regularly produce raster PM2.5 predictions at a 10 km resolution in
+The aim of this project is to regularly produce raster PM2.5 estimates at a 10 km resolution in
 India. It features a two-stage machine learning model for daily PM2.5 predictions.
 
 Based on *[Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality]*
