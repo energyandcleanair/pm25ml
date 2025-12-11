@@ -121,5 +121,5 @@ def color_properties(color_map, color_bounds, units: str, N_sample: int = 20):
 
 
 if __name__ == "__main__":
-    main(input_file='/home/work/Documents/projects/202508_india_satellite/input/pm25_final.nc',
+    main(input_file='data/input/pm25-full_rel-2025-11-r0_s-1.0_mb-1.0-r0.nc',
          output_directory='data')
