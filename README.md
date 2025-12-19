@@ -3,8 +3,9 @@
 The aim of this project is to regularly produce raster PM2.5 estimates at a 10 km resolution in
 India. It features a two-stage machine learning model for daily PM2.5 predictions.
 
-Based on *[Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality]*
-(developed and published by Ayako Kawano, other researchers at Stanford University, and collaborators).
+This is a reimplementation of the [Improved daily PM2.5 estimates in India reveal inequalities in recent
+enhancement of air quality] (Kawano, et al., 2025), developed and published by researchers at
+Stanford University, and built by the Centre for Research on Energy and Clean Air (CREA).
 
 ## Project layout
 
