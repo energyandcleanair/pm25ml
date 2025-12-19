@@ -1,5 +1,8 @@
 # `pm25ml`: PM2.5 Estimation for India
 
+This repository is where we develop the [South Asia PM2.5 map: India] product. You can find the
+results we generate using this on Zenodo, [10.5281/zenodo.17573562](https://doi.org/10.5281/zenodo.17573562).
+
 The aim of this project is to regularly produce raster PM2.5 estimates at a 10 km resolution in
 India. It features a two-stage machine learning model for daily PM2.5 predictions.
 
@@ -428,6 +431,7 @@ Kawano, A., Kelp, M., Qiu, M., Singh, K., Chaturvedi, E., Dahiya, S., … Burke,
 
 Kawano, A., Kelp, M., Qiu, M., Singh, K., Chaturvedi, E., DAHIYA, S., Azevedo, I., & Burke, M. (2024). High-Quality Daily PM2.5 Datasets for India at 10 km Resolution (Version 2) [Data set]. Science Advances. https://doi.org/10.5281/zenodo.13694585
 
+[South Asia PM2.5 map: India]: https://southasia-pm2-5.energyandcleanair.org/
 [Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality]: https://www.science.org/doi/10.1126/sciadv.adq1071
 [downloaded from Zenodo]: https://zenodo.org/records/13694585
 [*Environment* section]: #environment
