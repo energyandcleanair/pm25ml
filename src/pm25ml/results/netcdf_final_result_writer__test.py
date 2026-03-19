@@ -15,6 +15,7 @@ from pm25ml.results.netcdf_final_result_writer import NetCdfResultWriter
 
 
 DESTINATION_BUCKET = "test_bucket"
+TEST_COUNTRY = "india"
 
 
 @pytest.fixture()
@@ -24,9 +25,7 @@ def mem_storage() -> FinalResultStorage:
     return FinalResultStorage(filesystem=fs, destination_bucket=DESTINATION_BUCKET)
 
 
-def _make_dataset(
-    time_len: int = 16, y_len: int = 82, x_len: int = 72
-) -> GeoTimeGridDataset:
+def _make_dataset(time_len: int = 16, y_len: int = 82, x_len: int = 72) -> GeoTimeGridDataset:
     """Create a CF-friendly dataset with dims (time,y,x) and coords x,y in meters.
 
     The sizes align with the writer's default chunk sizes (16,82,72).
@@ -67,7 +66,7 @@ def _make_dataset(
 def test__netcdf_writer__writes_to_memfs_and_preserves_cf_attrs(
     mem_storage: FinalResultStorage,
 ) -> None:
-    output_ref = DataArtifactRef(stage="final_maps")
+    output_ref = DataArtifactRef(stage="final_maps", country=TEST_COUNTRY)
     writer = NetCdfResultWriter(
         output_ref=output_ref,
         file_prefix="pm25_daily_2023-01",
@@ -81,17 +80,13 @@ def test__netcdf_writer__writes_to_memfs_and_preserves_cf_attrs(
     rel_dir = f"{output_ref.initial_path}"
     expected_dir = f"{DESTINATION_BUCKET}/{rel_dir}"
     files = mem_storage.filesystem.ls(expected_dir)
-    assert (
-        len(files) == 1
-    ), f"Expected exactly one file in {expected_dir}, found: {files}"
+    assert len(files) == 1, f"Expected exactly one file in {expected_dir}, found: {files}"
 
     # Verify filename matches expected pattern with timestamp
     file_path = files[0]
     file_name = Path(file_path).name
     pattern = r"^pm25_daily_2023-01_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.nc$"
-    assert re.match(
-        pattern, file_name
-    ), f"Filename {file_name} doesn't match expected pattern"
+    assert re.match(pattern, file_name), f"Filename {file_name} doesn't match expected pattern"
 
     full_path = file_path
 

@@ -29,6 +29,7 @@ def _main(  # noqa: PLR0913
     collector: RawDataCollector = Provide[Pm25mlContainer.collector],
     monthly_combiner: MonthlyCombinerManager = Provide[Pm25mlContainer.monthly_combiner],
     combine_planner: CombinePlanner = Provide[Pm25mlContainer.combine_planner],
+    grid_cell_count: int = Provide[Pm25mlContainer.config.profile.grid_cell_count],
     spatial_imputation_manager: SpatialImputationManager = Provide[
         Pm25mlContainer.spatial_imputation_manager
     ],
@@ -37,7 +38,7 @@ def _main(  # noqa: PLR0913
     ],
 ) -> None:
     logger.info("Validating export pipeline config")
-    validate_configuration(processors)
+    validate_configuration(processors, grid_cell_count)
 
     logger.info("Collect data from processors and store in the ingest archive")
     results = collector.collect(processors)

@@ -10,11 +10,13 @@ from morefs.memory import MemFS
 
 from pm25ml.setup.date_params import TemporalConfig
 
-OUTPUT_DATA_ARTIFACT = DataArtifactRef(stage="recombined_stage")
+TEST_COUNTRY = "india"
+
+OUTPUT_DATA_ARTIFACT = DataArtifactRef(stage="recombined_stage", country=TEST_COUNTRY)
 INPUT_STAGE_1_NAME = "stage1"
 INPUT_STAGE_2_NAME = "stage2"
-INPUT_STAGE_1_ARTIFACT = DataArtifactRef(stage=INPUT_STAGE_1_NAME)
-INPUT_STAGE_2_ARTIFACT = DataArtifactRef(stage=INPUT_STAGE_2_NAME)
+INPUT_STAGE_1_ARTIFACT = DataArtifactRef(stage=INPUT_STAGE_1_NAME, country=TEST_COUNTRY)
+INPUT_STAGE_2_ARTIFACT = DataArtifactRef(stage=INPUT_STAGE_2_NAME, country=TEST_COUNTRY)
 
 
 @pytest.fixture
@@ -22,6 +24,7 @@ def in_memory_combined_storage():
     return CombinedStorage(
         filesystem=MemFS(),
         destination_bucket="test-bucket",
+        profile_id=TEST_COUNTRY,
     )
 
 
@@ -43,7 +46,7 @@ def recombiner(in_memory_combined_storage):
 def mock_combined_storage_with_data(in_memory_combined_storage):
     def write_mock_data(stage, month, data):
         in_memory_combined_storage.write_to_destination(
-            pl.DataFrame(data), f"stage={stage}/month={month}"
+            pl.DataFrame(data), f"country={TEST_COUNTRY}/stage={stage}/month={month}"
         )
 
     # Mock data for January 2023
@@ -91,7 +94,7 @@ def mock_combined_storage_with_data(in_memory_combined_storage):
 def mock_combined_storage_with_overlapping_columns(in_memory_combined_storage):
     def write_mock_data(stage, month, data):
         in_memory_combined_storage.write_to_destination(
-            pl.DataFrame(data), f"stage={stage}/month={month}"
+            pl.DataFrame(data), f"country={TEST_COUNTRY}/stage={stage}/month={month}"
         )
 
     # Mock data for January 2023 with overlapping columns
@@ -145,7 +148,7 @@ def test__recombine__valid_input__combines_data(recombiner, in_memory_combined_s
 
     # Validate January 2023
     result_jan = in_memory_combined_storage.read_dataframe(
-        HivePath.from_args(stage="recombined_stage", month="2023-01")
+        HivePath.from_args(country=TEST_COUNTRY, stage="recombined_stage", month="2023-01")
     )
     assert set(result_jan.columns) == {"grid_id", "date", "value1", "value2"}
     assert result_jan["value1"].to_list() == [10, 20, 30]
@@ -153,7 +156,7 @@ def test__recombine__valid_input__combines_data(recombiner, in_memory_combined_s
 
     # Validate February 2023
     result_feb = in_memory_combined_storage.read_dataframe(
-        HivePath.from_args(stage="recombined_stage", month="2023-02")
+        HivePath.from_args(country=TEST_COUNTRY, stage="recombined_stage", month="2023-02")
     )
     assert set(result_feb.columns) == {"grid_id", "date", "value1", "value2"}
     assert result_feb["value1"].to_list() == [40, 50, 60]
@@ -183,6 +186,7 @@ def test__recombine__existing_dataset_correct_columns__only_updates_one_month(
             }
         ),
         HivePath.from_args(
+            country=TEST_COUNTRY,
             stage="recombined_stage",
             month="2023-01",
         ),
@@ -198,7 +202,7 @@ def test__recombine__existing_dataset_correct_columns__only_updates_one_month(
 
     # Validate that the dataset remains unchanged
     result = in_memory_combined_storage.read_dataframe(
-        HivePath.from_args(stage="recombined_stage", month="2023-01")
+        HivePath.from_args(country=TEST_COUNTRY, stage="recombined_stage", month="2023-01")
     )
     assert set(result.columns) == {"grid_id", "date", "value1", "value2"}
     assert result["value1"].to_list() == [10, 20, 30]
@@ -209,6 +213,7 @@ def test__recombine__existing_dataset_correct_columns__only_updates_one_month(
     in_memory_combined_storage.write_to_destination.assert_called_with(
         ANY,
         HivePath.from_args(
+            country=TEST_COUNTRY,
             stage="recombined_stage",
             month="2023-02",
         ),

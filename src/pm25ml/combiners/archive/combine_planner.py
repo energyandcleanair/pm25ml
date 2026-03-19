@@ -20,7 +20,6 @@ from arrow import Arrow
 
 from pm25ml.collectors.collector import UploadResult
 from pm25ml.collectors.export_pipeline import MissingDataHeuristic
-from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pm25ml.hive_path import HivePath
 from pm25ml.setup.date_params import TemporalConfig
 
@@ -45,6 +44,8 @@ class CombinePlan:
     This includes both ID columns and value columns.
     """
 
+    n_grid_cells: int
+
     @property
     def month_id(self) -> str:
         """The month in 'YYYY-MM' format."""
@@ -53,7 +54,7 @@ class CombinePlan:
     @property
     def expected_rows(self) -> int:
         """The number of rows expected in the combined data for this month."""
-        return VALID_COUNTRIES["india"] * self.days_in_month
+        return self.n_grid_cells * self.days_in_month
 
     @property
     def days_in_month(self) -> int:
@@ -64,13 +65,14 @@ class CombinePlan:
 class CombinePlanner:
     """Planner for combining data for multiple months."""
 
-    def __init__(self, temporal_config: TemporalConfig) -> None:
+    def __init__(self, temporal_config: TemporalConfig, n_grid_cells: int) -> None:
         """
         Initialize the CombinePlanner.
 
         :param months: A collection of Arrow objects representing the months to combine.
         """
         self.months = temporal_config.months
+        self.n_grid_cells = n_grid_cells
 
     def plan(
         self,
@@ -94,6 +96,7 @@ class CombinePlanner:
                 month=month,
                 paths=set(self._list_paths_to_merge(month, results)),
                 expected_columns=all_expected_columns,
+                n_grid_cells=self.n_grid_cells,
             )
             for month in self.months
         ]

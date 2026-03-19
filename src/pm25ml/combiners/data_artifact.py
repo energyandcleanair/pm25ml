@@ -12,6 +12,7 @@ class DataArtifactRef:
     """Data artifact for combined storage."""
 
     stage: str
+    country: str
 
     @property
     def initial_path(self) -> HivePath:
@@ -20,7 +21,7 @@ class DataArtifactRef:
 
         :return: The initial HivePath for the artifact.
         """
-        return HivePath.from_args(stage=self.stage)
+        return HivePath.from_args(country=self.country, stage=self.stage)
 
     def for_sub_artifact(self, subartifact_name: str) -> DataArtifactRef:
         """
@@ -31,7 +32,7 @@ class DataArtifactRef:
         :return: A new DataArtifact with the sub-artifact name appended to the stage.
 
         """
-        return DataArtifactRef(stage=f"{self.stage}+{subartifact_name}")
+        return DataArtifactRef(stage=f"{self.stage}+{subartifact_name}", country=self.country)
 
     def for_month(self, month: str) -> HivePath:
         """

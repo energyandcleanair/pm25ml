@@ -36,7 +36,10 @@ def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_t
         "pm25ml.collectors.pm25.data_source.pl.scan_csv",
         return_value=measurements_df.lazy(),
     ) as mock_scan_csv:
-        ds = CreaMeasurementsApiDataSource(temporal_config=temporal_config_two_months)
+        ds = CreaMeasurementsApiDataSource(
+            temporal_config=temporal_config_two_months,
+            source_ids=("cpcb",),
+        )
 
         first = ds.fetch_station_stats()
         second = ds.fetch_station_stats()  # Should use cache
@@ -64,7 +67,7 @@ def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_t
         assert_frame_equal(actual, expected)
 
 
-def test__fetch_stations_for_india__parses_coordinates_and_caches(temporal_config_two_months):
+def test__fetch_stations__parses_coordinates_and_caches(temporal_config_two_months):
     """It should parse coordinate strings into longitude/latitude and cache the result."""
 
     stations_df = pl.DataFrame(
@@ -83,10 +86,13 @@ def test__fetch_stations_for_india__parses_coordinates_and_caches(temporal_confi
         "pm25ml.collectors.pm25.data_source.pl.read_csv",
         return_value=stations_df,
     ) as mock_read_csv:
-        ds = CreaMeasurementsApiDataSource(temporal_config=temporal_config_two_months)
+        ds = CreaMeasurementsApiDataSource(
+            temporal_config=temporal_config_two_months,
+            source_ids=("cpcb",),
+        )
 
-        first = ds.fetch_stations_for_india()
-        second = ds.fetch_stations_for_india()
+        first = ds.fetch_stations()
+        second = ds.fetch_stations()
 
         assert mock_read_csv.call_count == 1, "read_csv should be called only once due to caching"
         assert first is second
@@ -118,7 +124,10 @@ def test__fetch_station_data__casts_types(temporal_config_two_months):
         "pm25ml.collectors.pm25.data_source.pl.read_csv",
         return_value=measurements_df,
     ):
-        ds = CreaMeasurementsApiDataSource(temporal_config=temporal_config_two_months)
+        ds = CreaMeasurementsApiDataSource(
+            temporal_config=temporal_config_two_months,
+            source_ids=("cpcb",),
+        )
 
         result = ds.fetch_station_data(arrow.get("2023-01-01"), arrow.get("2023-01-02"))
 

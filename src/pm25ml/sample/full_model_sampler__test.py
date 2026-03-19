@@ -18,15 +18,20 @@ DESTINATION_BUCKET = "test_bucket"
 
 ORIGIN_ARTIFACT_NAME = "origin_stage"
 RESULT_ARTIFACT_NAME = "result_stage"
-ORIGIN_ARTIFACT = DataArtifactRef(stage=ORIGIN_ARTIFACT_NAME)
-RESULT_ARTIFACT = DataArtifactRef(stage=RESULT_ARTIFACT_NAME)
+TEST_COUNTRY = "india"
+ORIGIN_ARTIFACT = DataArtifactRef(stage=ORIGIN_ARTIFACT_NAME, country=TEST_COUNTRY)
+RESULT_ARTIFACT = DataArtifactRef(stage=RESULT_ARTIFACT_NAME, country=TEST_COUNTRY)
 
 
 @pytest.fixture
 def combined_storage():
     """In-memory CombinedStorage backed by MemFS."""
     fs = MemFS()
-    return CombinedStorage(filesystem=fs, destination_bucket=DESTINATION_BUCKET)
+    return CombinedStorage(
+        filesystem=fs,
+        destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
+    )
 
 
 @pytest.fixture
@@ -51,7 +56,7 @@ def test__full_model_sampler__single_month__filters_nulls(
                 "col_1": [10.0, None, 30.0, None],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
     )
 
     sampler = FullModelSampler(
@@ -64,7 +69,9 @@ def test__full_model_sampler__single_month__filters_nulls(
 
     sampler.sample()
 
-    result = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    result = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
     assert_frame_equal(
         result.sort(["grid_id", "date"]),
         DataFrame(
@@ -90,7 +97,7 @@ def test__full_model_sampler__multiple_months__processes_all(
                 "col_1": [10.0, None, 30.0],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
     )
     # Month 2
     combined_storage.write_to_destination(
@@ -101,7 +108,7 @@ def test__full_model_sampler__multiple_months__processes_all(
                 "col_1": [None, 50.0, 60.0],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-02",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-02",
     )
 
     sampler = FullModelSampler(
@@ -113,8 +120,12 @@ def test__full_model_sampler__multiple_months__processes_all(
     )
     sampler.sample()
 
-    jan = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
-    feb = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-02")
+    jan = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
+    feb = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-02"
+    )
 
     assert jan.height == 2  # 10.0 & 30.0
     assert feb.height == 2  # 50.0 & 60.0
@@ -134,7 +145,7 @@ def test__full_model_sampler__all_null_column__writes_empty_dataset(
                 "col_1": [None, None],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
     )
 
     sampler = FullModelSampler(
@@ -146,7 +157,9 @@ def test__full_model_sampler__all_null_column__writes_empty_dataset(
     )
     sampler.sample()
 
-    result = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    result = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
     assert result.height == 0
     # Ensure schema preserved (same columns present)
     assert result.columns == ["grid_id", "date", "col_1"]

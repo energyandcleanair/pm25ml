@@ -15,6 +15,8 @@ from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.hive_path import HivePath
 
 DESTINATION_BUCKET = "test_bucket"
+N_GRID_CELLS = 33074
+TEST_COUNTRY = "india"
 
 
 @pytest.fixture
@@ -24,6 +26,7 @@ def combined_storage():
     return CombinedStorage(
         fs,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
 
@@ -291,6 +294,7 @@ def test__combine__no_files__raises_error(
         combined_storage=combined_storage,
         output_artifact=DataArtifactRef(
             stage="combined_monthly",
+            country=TEST_COUNTRY,
         ),
     )
 
@@ -300,6 +304,7 @@ def test__combine__no_files__raises_error(
         month=get("2023-01"),
         paths=set(),
         expected_columns={"grid_id", "date", "col_1"},
+        n_grid_cells=N_GRID_CELLS,
     )
 
     with pytest.raises(ValueError, match="No data found for month '2023-01'..*"):
@@ -316,6 +321,7 @@ def test__combine__with_all_matching_types_and_extra_correct_result__successfull
         combined_storage=combined_storage,
         output_artifact=DataArtifactRef(
             stage="combined_monthly",
+            country=TEST_COUNTRY,
         ),
     )
 
@@ -333,13 +339,16 @@ def test__combine__with_all_matching_types_and_extra_correct_result__successfull
             "dataset_2__col_2",
             "dataset_3__col_3",
         },
+        n_grid_cells=N_GRID_CELLS,
     )
 
     # Combine for January 2023
     combiner.combine(combine_def)
 
     # Read the combined data
-    combined_data = combined_storage.read_dataframe("stage=combined_monthly/month=2023-01")
+    combined_data = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage=combined_monthly/month=2023-01"
+    )
 
     # Validate the combined data
     assert combined_data.height == 9
@@ -360,6 +369,7 @@ def test__combine__with_odd_number__successfully_merges(
         combined_storage=combined_storage,
         output_artifact=DataArtifactRef(
             stage="combined_monthly",
+            country=TEST_COUNTRY,
         ),
     )
 
@@ -377,13 +387,16 @@ def test__combine__with_odd_number__successfully_merges(
             "dataset_2__col_2",
             "dataset_3__col_3",
         },
+        n_grid_cells=N_GRID_CELLS,
     )
 
     # Combine for January 2023
     combiner.combine(combined_def)
 
     # Read the combined data
-    combined_data = combined_storage.read_dataframe("stage=combined_monthly/month=2023-01")
+    combined_data = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage=combined_monthly/month=2023-01"
+    )
 
     # Validate the combined data
     assert combined_data.height == 9
@@ -404,6 +417,7 @@ def test__combine__no_matching_merge__empty_dataset(
         combined_storage=combined_storage,
         output_artifact=DataArtifactRef(
             stage="combined_monthly",
+            country=TEST_COUNTRY,
         ),
     )
 
@@ -419,11 +433,14 @@ def test__combine__no_matching_merge__empty_dataset(
             "partial_1__col_1",
             "partial_2__col_2",
         },
+        n_grid_cells=N_GRID_CELLS,
     )
 
     combiner.combine(combined_def)
 
-    combined_data = combined_storage.read_dataframe("stage=combined_monthly/month=2023-01")
+    combined_data = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage=combined_monthly/month=2023-01"
+    )
 
     assert combined_data.height == 0
     assert "grid_id" in combined_data.columns
@@ -442,6 +459,7 @@ def test__combine__with_date_and_time_for_one__successfully_merges(
         combined_storage=combined_storage,
         output_artifact=DataArtifactRef(
             stage="combined_monthly",
+            country=TEST_COUNTRY,
         ),
     )
     combined_def = CombinePlan(
@@ -456,11 +474,14 @@ def test__combine__with_date_and_time_for_one__successfully_merges(
             "with_time__col_1",
             "without_time__col_2",
         },
+        n_grid_cells=N_GRID_CELLS,
     )
 
     combiner.combine(combined_def)
 
-    combined_data = combined_storage.read_dataframe("stage=combined_monthly/month=2023-01")
+    combined_data = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage=combined_monthly/month=2023-01"
+    )
 
     assert combined_data.height == 3
     assert "grid_id" in combined_data.columns
@@ -479,6 +500,7 @@ def test__combine__renaming_columns__successfully_renames(
         combined_storage=combined_storage,
         output_artifact=DataArtifactRef(
             stage="combined_monthly",
+            country=TEST_COUNTRY,
         ),
     )
 
@@ -496,11 +518,14 @@ def test__combine__renaming_columns__successfully_renames(
             "dataset_2__col_2",
             "dataset_3__col_3",
         },
+        n_grid_cells=N_GRID_CELLS,
     )
 
     combiner.combine(combined_def)
 
-    combined_data = combined_storage.read_dataframe("stage=combined_monthly/month=2023-01")
+    combined_data = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage=combined_monthly/month=2023-01"
+    )
 
     # Validate renamed columns
     assert "dataset_1__col_1" in combined_data.columns
@@ -518,6 +543,7 @@ def test__combine__without_dataset_key__raises_error(
         combined_storage=combined_storage,
         output_artifact=DataArtifactRef(
             stage="combined_monthly",
+            country=TEST_COUNTRY,
         ),
     )
 
@@ -527,6 +553,7 @@ def test__combine__without_dataset_key__raises_error(
             HivePath("month=2023-01"),
         },
         expected_columns={"grid_id", "date", "col_1"},
+        n_grid_cells=N_GRID_CELLS,
     )
 
     with pytest.raises(

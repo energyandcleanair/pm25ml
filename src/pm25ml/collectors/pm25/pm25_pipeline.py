@@ -89,7 +89,7 @@ class Pm25MeasurementsPipeline(ExportPipeline):
             "value",
         )
         station_to_grid_ids_df = self._with_closest_grid_points(
-            self.crea_ds.fetch_stations_for_india(),
+            self.crea_ds.fetch_stations(),
         ).select(
             "id",
             "grid_id",
@@ -167,7 +167,7 @@ class Pm25MeasurementsPipeline(ExportPipeline):
         self,
         station_data: pl.DataFrame,
     ) -> pl.DataFrame:
-        logger.info("Finding closest grid points for stations in India")
+        logger.info("Finding closest grid points for configured profile stations")
         df_grid = self.in_memory_grid.df
 
         grid_latlon_rad = np.deg2rad(

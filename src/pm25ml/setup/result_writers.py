@@ -8,12 +8,14 @@ from pm25ml.results.netcdf_final_result_writer import NetCdfResultWriter
 
 def define_result_writers(
     storage: FinalResultStorage,
+    profile_id: str,
 ) -> list[FinalResultWriter]:
     """Build the result writers for the application."""
     return [
         NetCdfResultWriter(
             output_ref=DataArtifactRef(
                 stage="netcdf",
+                country=profile_id,
             ),
             output_storage=storage,
             file_prefix="pm25_final",

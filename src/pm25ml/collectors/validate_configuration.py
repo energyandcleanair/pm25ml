@@ -7,12 +7,11 @@ import arrow
 from pm25ml.collectors.export_pipeline import ExportPipeline
 from pm25ml.hive_path import HivePath
 
-VALID_COUNTRIES = {
-    "india": 33074,
-}
 
-
-def validate_configuration(processors: Collection[ExportPipeline]) -> None:
+def validate_configuration(
+    processors: Collection[ExportPipeline],
+    expected_grid_cell_count: int,
+) -> None:
     """
     Perform a preliminary check on the expected result.
 
@@ -22,7 +21,7 @@ def validate_configuration(processors: Collection[ExportPipeline]) -> None:
     :raises ValueError: If the expected number of rows does not match the number of grids.
     """
     for processor in processors:
-        _validate_single_processor_config(processor)
+        _validate_single_processor_config(processor, expected_grid_cell_count)
 
     # All result paths are unique
     result_subpaths = {processor.get_config_metadata().result_subpath for processor in processors}
@@ -34,7 +33,10 @@ def validate_configuration(processors: Collection[ExportPipeline]) -> None:
         raise ValueError(msg)
 
 
-def _validate_single_processor_config(processor: ExportPipeline) -> None:
+def _validate_single_processor_config(
+    processor: ExportPipeline,
+    expected_grid_cell_count: int,
+) -> None:
     expected_result = processor.get_config_metadata()
 
     path_metadata = HivePath(
@@ -44,21 +46,9 @@ def _validate_single_processor_config(processor: ExportPipeline) -> None:
     # Check that dataset is not empty
     path_metadata.require_key("dataset")
     path_metadata.require_key("country")
-
-    # Check that country is in valid regions
-    country = path_metadata.metadata["country"]
-    _assert(
-        country in VALID_COUNTRIES,
-        (
-            f"Invalid country '{country}' in {expected_result.result_subpath}. "
-            f"Valid countries are: {', '.join(VALID_COUNTRIES.keys())}."
-        ),
-    )
-
-    n_grids = VALID_COUNTRIES[country]
     expected_rows = _expected_row_count(
         path_metadata.metadata,
-        n_grids=n_grids,
+        n_grids=expected_grid_cell_count,
     )
     _assert(
         expected_result.expected_rows == expected_rows,

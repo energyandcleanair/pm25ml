@@ -11,6 +11,9 @@ from lightgbm import Booster, LGBMRegressor
 from pm25ml.training.model_storage import ModelStorage, ValidatedModel
 
 
+TEST_COUNTRY = "india"
+
+
 @pytest.fixture
 def in_memory_filesystem():
     return MemFS()
@@ -26,7 +29,7 @@ def sample_data():
 
 @pytest.fixture()
 def model_storage(in_memory_filesystem):
-    return ModelStorage(in_memory_filesystem, "test_bucket")
+    return ModelStorage(in_memory_filesystem, "test_bucket", profile_id=TEST_COUNTRY)
 
 
 @pytest.fixture(scope="module")
@@ -61,13 +64,13 @@ def test__save_model__xgb_model_with_validated_model__files_exist(model_storage,
     expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
 
     assert model_storage.filesystem.exists(
-        f"test_bucket/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
+        f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
     )
     assert model_storage.filesystem.exists(
-        f"test_bucket/xgb_model/{expected_date_path}/cv_results.parquet"
+        f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/cv_results.parquet"
     )
     assert model_storage.filesystem.exists(
-        f"test_bucket/xgb_model/{expected_date_path}/test_metrics.json"
+        f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/test_metrics.json"
     )
 
 
@@ -85,13 +88,13 @@ def test__save_model__lgbm_model_with_validated_model__files_exist(
     expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
 
     assert model_storage.filesystem.exists(
-        f"test_bucket/lgbm_model/{expected_date_path}/model+LGBMRegressor.gz"
+        f"test_bucket/country={TEST_COUNTRY}/lgbm_model/{expected_date_path}/model+LGBMRegressor.gz"
     )
     assert model_storage.filesystem.exists(
-        f"test_bucket/lgbm_model/{expected_date_path}/cv_results.parquet"
+        f"test_bucket/country={TEST_COUNTRY}/lgbm_model/{expected_date_path}/cv_results.parquet"
     )
     assert model_storage.filesystem.exists(
-        f"test_bucket/lgbm_model/{expected_date_path}/test_metrics.json"
+        f"test_bucket/country={TEST_COUNTRY}/lgbm_model/{expected_date_path}/test_metrics.json"
     )
 
 
@@ -113,13 +116,13 @@ def test__save_model__statistics_model_with_validated_model__files_and_content_c
     expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
 
     with model_storage.filesystem.open(
-        f"test_bucket/stats_model/{expected_date_path}/cv_results.parquet"
+        f"test_bucket/country={TEST_COUNTRY}/stats_model/{expected_date_path}/cv_results.parquet"
     ) as f:
         cv_results = pd.read_csv(f)
         assert "metric" in cv_results.columns
 
     with model_storage.filesystem.open(
-        f"test_bucket/stats_model/{expected_date_path}/test_metrics.json"
+        f"test_bucket/country={TEST_COUNTRY}/stats_model/{expected_date_path}/test_metrics.json"
     ) as f:
         test_metrics = json.load(f)
         assert test_metrics["r2"] == 0.85
@@ -185,3 +188,22 @@ def test__load_latest_model__xgb_model_with_multiple_runs__latest_model_loaded(
     loaded_model_wrapper = model_storage.load_latest_model("xgb_model")
 
     assert loaded_model_wrapper.test_metrics["rmse"] == 0.10
+
+
+def test__save_model__profile_storage__writes_under_country_partition(
+    in_memory_filesystem, trained_xgb_model
+):
+    model_storage = ModelStorage(in_memory_filesystem, "test_bucket", profile_id="in+bd")
+    validated_model = ValidatedModel(
+        model=trained_xgb_model,
+        cv_results=pd.DataFrame({"metric": [0.1, 0.2]}),
+        test_metrics={"rmse": 0.15},
+    )
+
+    model_storage.save_model("xgb_model", EXAMPLE_DATE, validated_model)
+
+    expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
+
+    assert model_storage.filesystem.exists(
+        f"test_bucket/country=in+bd/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
+    )

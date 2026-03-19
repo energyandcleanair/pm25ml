@@ -68,17 +68,24 @@ class ModelStorage:
     as they do not support direct streaming from cloud storage.
     """
 
-    def __init__(self, filesystem: AbstractFileSystem, bucket_name: str) -> None:
+    def __init__(
+        self,
+        filesystem: AbstractFileSystem,
+        bucket_name: str,
+        profile_id: str,
+    ) -> None:
         """
         Initialize the model storage.
 
         Args:
             filesystem (AbstractFileSystem): The filesystem to use for storage.
             bucket_name (str): The name of the bucket where models will be stored.
+            profile_id (str): The profile/country identifier for partitioned storage.
 
         """
         self.filesystem = filesystem
         self.bucket_name = bucket_name
+        self.profile_id = profile_id
 
     def save_model(
         self,
@@ -96,7 +103,7 @@ class ModelStorage:
 
         """
         base_path = Path(
-            self.bucket_name,
+            self._models_root(),
             model_name,
             model_run_ref.format("YYYY-MM-DD+HH-mm-ss"),
         )
@@ -138,7 +145,11 @@ class ModelStorage:
                 msg = "Unsupported model type for saving."
                 raise TypeError(msg)
 
-    def load_model(self, model_name: ModelName, model_run_ref: ModelRunRef) -> LoadedValidatedModel:
+    def load_model(
+        self,
+        model_name: ModelName,
+        model_run_ref: ModelRunRef,
+    ) -> LoadedValidatedModel:
         """
         Load a validated model from the storage.
 
@@ -150,7 +161,10 @@ class ModelStorage:
             ValidatedModel: The loaded validated model.
 
         """
-        return self._load_from_str_ref(model_name, model_run_ref.format("YYYY-MM-DD+HH-mm-ss"))
+        return self._load_from_str_ref(
+            model_name,
+            model_run_ref.format("YYYY-MM-DD+HH-mm-ss"),
+        )
 
     def load_latest_model(self, model_name: ModelName) -> LoadedValidatedModel:
         """
@@ -163,7 +177,7 @@ class ModelStorage:
             LoadedValidatedModel: The loaded validated model.
 
         """
-        base_path = Path(self.bucket_name, model_name)
+        base_path = Path(self._models_root(), model_name)
 
         # Find the latest model run reference
         model_run_refs: list[str] = [
@@ -180,9 +194,13 @@ class ModelStorage:
         # Delegate to the existing load_model method
         return self._load_from_str_ref(model_name, latest_run_ref)
 
-    def _load_from_str_ref(self, model_name: ModelName, model_run_ref: str) -> LoadedValidatedModel:
+    def _load_from_str_ref(
+        self,
+        model_name: ModelName,
+        model_run_ref: str,
+    ) -> LoadedValidatedModel:
         base_path = Path(
-            self.bucket_name,
+            self._models_root(),
             model_name,
             model_run_ref,
         )
@@ -202,7 +220,10 @@ class ModelStorage:
         )
 
     def _find_model_path(self, base_path: Path) -> str:
-        model_type_path = next(iter(self.filesystem.glob(str(base_path / "model+*"))), None)
+        model_type_path = next(
+            iter(self.filesystem.glob(str(base_path / "model+*"))),
+            None,
+        )
         if not model_type_path:
             model_type_not_found_msg = "Model type file not found."
             raise FileNotFoundError(model_type_not_found_msg)
@@ -228,7 +249,9 @@ class ModelStorage:
             logger.debug(f"Loading bytes for model type: {model_type_path}")
             model_bytes = self._read_bytes_from_model_path(model_type_path)
 
-            logger.debug(f"Writing bytes to temporary dir for model type: {model_type_path}")
+            logger.debug(
+                f"Writing bytes to temporary dir for model type: {model_type_path}",
+            )
             tmp_model_path = Path(
                 tmp_dir,
                 "model.json" if model_type == "XGBRegressor" else "model.txt",
@@ -244,7 +267,11 @@ class ModelStorage:
 
             return self._load_model_from_local_file(model_type, tmp_model_path)
 
-    def _load_model_from_local_file(self, model_type: ModelType, model_path: Path) -> GBTDAALModel:
+    def _load_model_from_local_file(
+        self,
+        model_type: ModelType,
+        model_path: Path,
+    ) -> GBTDAALModel:
         logger.debug(f"Loading model from temporary path: {model_path}")
         predictor: GBTDAALModel
         match model_type:
@@ -256,7 +283,10 @@ class ModelStorage:
                 # We can cast this as, when a booster is used with a data frame, it will return
                 # an ndarray - and so will behave like a Predictor.
                 lightgbm_booster = lightgbm.Booster(model_file=str(model_path))
-                predictor = cast("GBTDAALModel", daal4py.mb.convert_model(lightgbm_booster))
+                predictor = cast(
+                    "GBTDAALModel",
+                    daal4py.mb.convert_model(lightgbm_booster),
+                )
             case _:
                 msg = f"Unsupported model type: {model_type}"
                 raise ValueError(msg)
@@ -268,6 +298,9 @@ class ModelStorage:
             GzipFile(fileobj=f, mode="rb") as gz_f,
         ):
             return cast("bytes", gz_f.read())
+
+    def _models_root(self) -> Path:
+        return Path(self.bucket_name, f"country={self.profile_id}")
 
     def _load_cv_metrics(self, base_path: Path) -> pd.DataFrame:
         cv_results_path = str(base_path / "cv_results.parquet")

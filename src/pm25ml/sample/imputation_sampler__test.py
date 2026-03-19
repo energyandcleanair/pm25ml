@@ -18,8 +18,9 @@ DESTINATION_BUCKET = "test_bucket"
 
 RESULT_ARTIFACT_NAME = "result_stage"
 ORIGIN_ARTIFACT_NAME = "origin_stage"
-RESULT_ARTIFACT = DataArtifactRef(stage=RESULT_ARTIFACT_NAME)
-ORIGIN_ARTIFACT = DataArtifactRef(stage=ORIGIN_ARTIFACT_NAME)
+TEST_COUNTRY = "india"
+RESULT_ARTIFACT = DataArtifactRef(stage=RESULT_ARTIFACT_NAME, country=TEST_COUNTRY)
+ORIGIN_ARTIFACT = DataArtifactRef(stage=ORIGIN_ARTIFACT_NAME, country=TEST_COUNTRY)
 
 
 @pytest.fixture
@@ -29,6 +30,7 @@ def combined_storage():
     return CombinedStorage(
         fs,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
 
@@ -65,7 +67,7 @@ def test__imputation_sampler__process_month__correct_sampling(
                 "col_1": [10.0, None, 30.0, 40.0, None, 60.0],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
     )
 
     # Create sampler
@@ -85,7 +87,9 @@ def test__imputation_sampler__process_month__correct_sampling(
     sampler.sample()
 
     # Read the sampled data
-    sampled_data = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    sampled_data = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
 
     assert_frame_equal(
         sampled_data,
@@ -120,7 +124,7 @@ def test__imputation_sampler__process_month_multiple_grids__correct_sampling(
                 "col_1": [None, 20.0, 30.0, 40.0, None, 60.0, 70.0, 80.0, None],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
     )
 
     # Create sampler
@@ -140,7 +144,9 @@ def test__imputation_sampler__process_month_multiple_grids__correct_sampling(
     sampler.sample()
 
     # Read the sampled data
-    sampled_data = combined_storage.read_dataframe(f"stage={RESULT_ARTIFACT_NAME}/month=2023-01")
+    sampled_data = combined_storage.read_dataframe(
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+    )
 
     assert_frame_equal(
         sampled_data,
@@ -184,7 +190,7 @@ def test__imputation_sampler__process_month_multiple_months(
                 "col_1": [10.0, None, 30.0, 40.0, None, 60.0],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-01",
     )
     combined_storage.write_to_destination(
         DataFrame(
@@ -202,7 +208,7 @@ def test__imputation_sampler__process_month_multiple_months(
                 "col_1": [10.0, None, 30.0, 40.0, None, 60.0],
             }
         ),
-        f"stage={ORIGIN_ARTIFACT_NAME}/month=2023-02",
+        f"country={TEST_COUNTRY}/stage={ORIGIN_ARTIFACT_NAME}/month=2023-02",
     )
 
     # Create sampler
@@ -223,10 +229,10 @@ def test__imputation_sampler__process_month_multiple_months(
 
     # Read the sampled data for January
     sampled_data_jan = combined_storage.read_dataframe(
-        f"stage={RESULT_ARTIFACT_NAME}/month=2023-01"
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
     )
     sampled_data_feb = combined_storage.read_dataframe(
-        f"stage={RESULT_ARTIFACT_NAME}/month=2023-02"
+        f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-02"
     )
 
     assert sampled_data_jan.height == 4

@@ -1,6 +1,5 @@
 import pytest
-from pm25ml.collectors.validate_configuration import validate_configuration, VALID_COUNTRIES
-from pm25ml.collectors.export_pipeline import ExportPipeline
+from pm25ml.collectors.validate_configuration import validate_configuration
 
 
 class MockExportPipeline:
@@ -68,27 +67,23 @@ def missing_country_key_processor():
 
 
 def test__validate_configuration__valid_processor_months__no_error(valid_processor_months):
-    validate_configuration([valid_processor_months])
+    validate_configuration([valid_processor_months], 33074)
 
 
 def test__validate_configuration__valid_processor_years__no_error(valid_processor_years):
-    validate_configuration([valid_processor_years])
+    validate_configuration([valid_processor_years], 33074)
 
 
 def test__validate_configuration__valid_processor_months_no_time_qualifier__no_error(
     valid_processor_months_no_time_qualifier,
 ):
-    validate_configuration([valid_processor_months_no_time_qualifier])
+    validate_configuration([valid_processor_months_no_time_qualifier], 33074)
 
 
-def test__validate_configuration__invalid_country_processor__raises_value_error(
+def test__validate_configuration__invalid_country_processor__no_error_if_rows_match(
     invalid_country_processor,
 ):
-    with pytest.raises(
-        ValueError,
-        match=f"Invalid country 'invalid' in {invalid_country_processor.result_subpath}.*",
-    ):
-        validate_configuration([invalid_country_processor])
+    validate_configuration([invalid_country_processor], 33074)
 
 
 def test__validate_configuration__missing_dataset_key_processor__raises_value_error(
@@ -97,7 +92,7 @@ def test__validate_configuration__missing_dataset_key_processor__raises_value_er
     with pytest.raises(
         ValueError, match="Expected 'dataset' key in month=2023-01, but it is missing."
     ):
-        validate_configuration([missing_dataset_key_processor])
+        validate_configuration([missing_dataset_key_processor], 33074)
 
 
 def test__validate_configuration__missing_country_key_processor__raises_value_error(
@@ -106,4 +101,4 @@ def test__validate_configuration__missing_country_key_processor__raises_value_er
     with pytest.raises(
         ValueError, match="Expected 'country' key in dataset=test/month=2023-01, but it is missing."
     ):
-        validate_configuration([missing_country_key_processor])
+        validate_configuration([missing_country_key_processor], 33074)

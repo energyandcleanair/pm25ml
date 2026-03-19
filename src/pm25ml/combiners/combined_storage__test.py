@@ -10,6 +10,7 @@ from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.hive_path import HivePath
 
 DESTINATION_BUCKET = "destination_bucket"
+TEST_COUNTRY = "india"
 
 
 @pytest.fixture
@@ -33,6 +34,7 @@ def test__write_to_destination__valid_input__writes_parquet(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     storage.write_to_destination(example_table, "result_path")
@@ -48,6 +50,7 @@ def test__write_to_destination__hivepath_input__writes_parquet(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     # Use a HivePath format
@@ -67,6 +70,7 @@ def test__read_dataframe__valid_input__returns_dataframe(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     # Write the table to the destination
@@ -85,6 +89,7 @@ def test__read_dataframe__hivepath_input__returns_dataframe(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
     # Use a HivePath format
     hive_path = HivePath.from_args(
@@ -107,6 +112,7 @@ def test__read_dataframe__file_named_0_parquet__returns_dataframe(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     # Write the table to a file named 0.parquet
@@ -127,6 +133,7 @@ def test__read_dataframe__file_named_data_parquet__returns_dataframe(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     # Write the table to a file named data.parquet
@@ -148,6 +155,7 @@ def test__scan_stage__valid_stage__returns_lazyframe(in_memory_filesystem, examp
         storage = CombinedStorage(
             filesystem=in_memory_filesystem,
             destination_bucket=DESTINATION_BUCKET,
+            profile_id=TEST_COUNTRY,
         )
 
         # Mock the scan_parquet method to return a LazyFrame
@@ -157,12 +165,35 @@ def test__scan_stage__valid_stage__returns_lazyframe(in_memory_filesystem, examp
         lazy_frame = storage.scan_stage("valid_stage")
 
         mock_scan.assert_called_once_with(
-            f"gs://{DESTINATION_BUCKET}/stage=valid_stage/",
+            f"gs://{DESTINATION_BUCKET}/country={TEST_COUNTRY}/stage=valid_stage/",
             hive_partitioning=True,
         )
 
         # Validate that the returned object is a LazyFrame
         assert lazy_frame is mock_lazy_frame
+
+
+def test__scan_stage__profile_storage__includes_country_partition(
+    in_memory_filesystem, example_table
+) -> None:
+    with patch(
+        "polars.scan_parquet",
+    ) as mock_scan:
+        storage = CombinedStorage(
+            filesystem=in_memory_filesystem,
+            destination_bucket=DESTINATION_BUCKET,
+            profile_id="in+bd",
+        )
+
+        mock_lazy_frame = pl.LazyFrame(example_table)
+        mock_scan.return_value = mock_lazy_frame
+
+        storage.scan_stage("valid_stage")
+
+        mock_scan.assert_called_once_with(
+            f"gs://{DESTINATION_BUCKET}/country=in+bd/stage=valid_stage/",
+            hive_partitioning=True,
+        )
 
 
 def test__does_dataset_exist__dataset_written__returns_true(
@@ -171,6 +202,7 @@ def test__does_dataset_exist__dataset_written__returns_true(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     # Initially, the dataset should not exist
@@ -187,6 +219,7 @@ def test__does_dataset_exist__dataset_not_written__returns_false(in_memory_files
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     # Ensure the dataset does not exist
@@ -199,6 +232,7 @@ def test__does_dataset_exist__hivepath_input__returns_true(
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,
+        profile_id=TEST_COUNTRY,
     )
 
     # Use a HivePath format

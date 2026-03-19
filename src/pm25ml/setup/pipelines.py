@@ -39,6 +39,7 @@ def define_pipelines(  # noqa: PLR0913
     archive_storage: IngestArchiveStorage,
     feature_planner: GriddedFeatureCollectionPlanner,
     temporal_config: TemporalConfig,
+    profile_id: str,
 ) -> Collection[ExportPipeline]:
     """Define export pipelines for the PM2.5 ML project."""
 
@@ -50,12 +51,12 @@ def define_pipelines(  # noqa: PLR0913
                     image_name="USGS/SRTMGL1_003",
                     selected_bands=["elevation"],
                 ),
-                result_subpath="country=india/dataset=srtm_elevation/type=static",
+                result_subpath=f"country={profile_id}/dataset=srtm_elevation/type=static",
             ),
             GridExportPipeline(
                 grid=in_memory_grid,
                 archive_storage=archive_storage,
-                result_subpath="country=india/dataset=grid/type=static",
+                result_subpath=f"country={profile_id}/dataset=grid/type=static",
             ),
         ]
 
@@ -75,7 +76,7 @@ def define_pipelines(  # noqa: PLR0913
                     },
                     year=year,
                 ),
-                result_subpath=f"country=india/dataset=modis_land_cover/year={year}",
+                result_subpath=f"country={profile_id}/dataset=modis_land_cover/year={year}",
                 pipeline_consumer_behaviour=PipelineConsumerBehaviour(
                     missing_data_heuristic=MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE,
                 )
@@ -101,7 +102,7 @@ def define_pipelines(  # noqa: PLR0913
                     selected_bands=["CO_column_number_density"],
                     dates=dates_in_month,
                 ),
-                result_subpath=f"country=india/dataset=s5p_co/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=s5p_co/month={month_short}",
             ),
             gee_pipeline_constructor.construct(
                 plan=feature_planner.plan_daily_average(
@@ -109,7 +110,7 @@ def define_pipelines(  # noqa: PLR0913
                     selected_bands=["tropospheric_NO2_column_number_density"],
                     dates=dates_in_month,
                 ),
-                result_subpath=f"country=india/dataset=s5p_no2/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=s5p_no2/month={month_short}",
             ),
             gee_pipeline_constructor.construct(
                 plan=feature_planner.plan_daily_average(
@@ -127,7 +128,7 @@ def define_pipelines(  # noqa: PLR0913
                     ],
                     dates=dates_in_month,
                 ),
-                result_subpath=f"country=india/dataset=era5_land/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=era5_land/month={month_short}",
             ),
             gee_pipeline_constructor.construct(
                 plan=feature_planner.plan_daily_average(
@@ -135,7 +136,7 @@ def define_pipelines(  # noqa: PLR0913
                     selected_bands=["Optical_Depth_047", "Optical_Depth_055"],
                     dates=dates_in_month,
                 ),
-                result_subpath=f"country=india/dataset=modis_aod/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=modis_aod/month={month_short}",
             ),
             ned_pipeline_constructor.construct(
                 dataset_descriptor=NedDatasetDescriptor(
@@ -152,7 +153,7 @@ def define_pipelines(  # noqa: PLR0913
                 ),
                 dataset_reader=MerraDataReader(),
                 dataset_retriever=HarmonySubsetterDataRetriever(),
-                result_subpath=f"country=india/dataset=merra_aot/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=merra_aot/month={month_short}",
             ),
             ned_pipeline_constructor.construct(
                 dataset_descriptor=NedDatasetDescriptor(
@@ -169,7 +170,7 @@ def define_pipelines(  # noqa: PLR0913
                 ),
                 dataset_reader=MerraDataReader(),
                 dataset_retriever=HarmonySubsetterDataRetriever(),
-                result_subpath=f"country=india/dataset=merra_co/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=merra_co/month={month_short}",
             ),
             ned_pipeline_constructor.construct(
                 dataset_descriptor=NedDatasetDescriptor(
@@ -186,7 +187,7 @@ def define_pipelines(  # noqa: PLR0913
                 ),
                 dataset_reader=MerraDataReader(),
                 dataset_retriever=HarmonySubsetterDataRetriever(),
-                result_subpath=f"country=india/dataset=merra_co_top/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=merra_co_top/month={month_short}",
             ),
             ned_pipeline_constructor.construct(
                 dataset_descriptor=NedDatasetDescriptor(
@@ -204,10 +205,10 @@ def define_pipelines(  # noqa: PLR0913
                 ),
                 dataset_reader=Omno2dReader(),
                 dataset_retriever=RawEarthAccessDataRetriever(),
-                result_subpath=f"country=india/dataset=omi_no2/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=omi_no2/month={month_short}",
             ),
             pm25_pipeline_constructor.construct(
-                result_subpath=f"country=india/dataset=pm25/month={month_short}",
+                result_subpath=f"country={profile_id}/dataset=pm25/month={month_short}",
                 month=month_start,
             ),
         ]

@@ -70,7 +70,7 @@ class _FakeDataSource:
         self.last_fetch_end = end_date
         return self.measurement_df
 
-    def fetch_stations_for_india(self) -> pl.DataFrame:  # noqa: D401
+    def fetch_stations(self) -> pl.DataFrame:  # noqa: D401
         return self.stations_df
 
     def fetch_station_stats(self) -> pl.DataFrame:  # noqa: D401
@@ -145,7 +145,9 @@ def station_stats_df() -> pl.DataFrame:
 
 @pytest.fixture
 def fake_ds(
-    measurement_df: pl.DataFrame, stations_df: pl.DataFrame, station_stats_df: pl.DataFrame
+    measurement_df: pl.DataFrame,
+    stations_df: pl.DataFrame,
+    station_stats_df: pl.DataFrame,
 ) -> _FakeDataSource:  # noqa: D401
     return _FakeDataSource(
         measurement_df=measurement_df,

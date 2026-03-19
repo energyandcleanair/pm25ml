@@ -26,6 +26,7 @@ class CombinedStorage:
         self,
         filesystem: AbstractFileSystem,
         destination_bucket: str,
+        profile_id: str,
     ) -> None:
         """
         Initialize the IngestArchiveStorage with the filesystem and bucket paths.
@@ -35,6 +36,7 @@ class CombinedStorage:
         """
         self.filesystem = filesystem
         self.destination_bucket = destination_bucket
+        self.profile_id = profile_id
 
     def write_to_destination(
         self,
@@ -137,7 +139,7 @@ class CombinedStorage:
         :param stage: The stage to scan.
         :return: A LazyFrame representing the scanned data.
         """
-        path = f"gs://{self.destination_bucket}/stage={stage}/"
+        path = f"gs://{self.destination_bucket}/{self._stage_path(stage)}/"
         return pl.scan_parquet(
             path,
             hive_partitioning=True,
@@ -170,7 +172,7 @@ class CombinedStorage:
         :param lf: The LazyFrame to sink.
         :param stage: The stage to sink the LazyFrame to.
         """
-        path = f"gs://{self.destination_bucket}/stage={stage}/"
+        path = f"gs://{self.destination_bucket}/{self._stage_path(stage)}/"
         scheme = pl.PartitionParted(
             base_path=path,
             by=["month"],
@@ -181,3 +183,6 @@ class CombinedStorage:
             mkdir=True,
             engine="streaming",
         )
+
+    def _stage_path(self, stage: str) -> str:
+        return f"country={self.profile_id}/stage={stage}"

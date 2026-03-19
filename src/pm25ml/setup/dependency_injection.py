@@ -24,7 +24,6 @@ from pm25ml.collectors.grid import Grid, load_grid_from_files
 from pm25ml.collectors.ned.ned_export_pipeline import NedPipelineConstructor
 from pm25ml.collectors.pm25.data_source import CreaMeasurementsApiDataSource
 from pm25ml.collectors.pm25.pm25_pipeline import Pm25MeasurementsPipelineConstructor
-from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pm25ml.combiners.archive.combine_manager import MonthlyCombinerManager
 from pm25ml.combiners.archive.combine_planner import CombinePlanner
 from pm25ml.combiners.archive.combiner import ArchiveWideCombiner
@@ -58,10 +57,6 @@ if TYPE_CHECKING:
 
     type BooleanSelector = Literal["true", "false"]
 
-LOCAL_GRID_ZIP_PATH = Path("./assets/grid_india_10km_shapefiles.zip")
-LOCAL_GRID_50KM_MAPPING_CSV_PATH = Path("./assets/grid_intersect_with_50km.csv")
-LOCAL_GRID_REGION_PARQUET_PATH = Path("./assets/grid_region.parquet")
-
 NO_OP = lambda x: x  # noqa: E731
 
 
@@ -85,38 +80,53 @@ def _init_gee(
     yield
 
 
-def _load_india_grid_reference_asset(india_shapefile_asset: str) -> FeatureCollection:
+def _profile_asset_dir(profile_id: str) -> Path:
+    return Path("./assets") / profile_id
+
+
+def _load_grid_reference_asset(
+    grid_asset_path: str,
+    expected_grid_cell_count: int,
+    profile_id: str,
+) -> FeatureCollection:
     """
-    Initialize the GeeIndiaGridReferenceResource with the GEE asset path.
+    Initialize the GEE grid reference resource with the configured asset path.
 
     Args:
-        india_shapefile_asset (str): The GEE asset path for the India shapefile.
+        grid_asset_path (str): The GEE asset path for the configured shapefile.
+        expected_grid_cell_count (int): The number of grid cells expected in the asset.
+        profile_id (str): The pipeline profile that owns the grid asset.
 
     Returns:
         ee.FeatureCollection: The initialized FeatureCollection.
 
     """
-    logger.debug("Loading India grid reference asset from: %s", india_shapefile_asset)
-    gee_india_grid_reference = FeatureCollection(india_shapefile_asset)
-    gee_india_grid_reference_size = gee_india_grid_reference.size().getInfo()
-    if gee_india_grid_reference_size != VALID_COUNTRIES["india"]:
+    logger.debug("Loading grid reference asset for %s from: %s", profile_id, grid_asset_path)
+    grid_reference = FeatureCollection(grid_asset_path)
+    grid_reference_size = grid_reference.size().getInfo()
+    if grid_reference_size != expected_grid_cell_count:
         msg = (
-            f"Expected {VALID_COUNTRIES['india']} features in the GEE India grid, "
-            f"but found {gee_india_grid_reference_size}."
+            f"Expected {expected_grid_cell_count} features in the GEE grid for {profile_id}, "
+            f"but found {grid_reference_size}."
         )
         raise ValueError(
             msg,
         )
 
-    return gee_india_grid_reference
+    return grid_reference
 
 
-def _load_in_memory_grid() -> Grid:
-    logger.debug("Loading in-memory grid from local zip file: %s", LOCAL_GRID_ZIP_PATH)
+def _load_in_memory_grid(profile_id: str) -> Grid:
+    asset_dir = _profile_asset_dir(profile_id)
+    grid_zip_path = asset_dir / "grid_10km_shapefiles.zip"
+    grid_50km_mapping_csv_path = asset_dir / "grid_intersect_with_50km.csv"
+    grid_region_parquet_path = asset_dir / "grid_region.parquet"
+
+    logger.debug("Loading in-memory grid for %s from local zip file: %s", profile_id, grid_zip_path)
     return load_grid_from_files(
-        path_to_shapefile_zip=LOCAL_GRID_ZIP_PATH,
-        path_to_50km_csv=LOCAL_GRID_50KM_MAPPING_CSV_PATH,
-        path_to_region_parquet=LOCAL_GRID_REGION_PARQUET_PATH,
+        path_to_shapefile_zip=grid_zip_path,
+        path_to_50km_csv=grid_50km_mapping_csv_path,
+        path_to_region_parquet=grid_region_parquet_path,
     )
 
 
@@ -128,44 +138,54 @@ class DataArtifactProvider(containers.DeclarativeContainer):
     and management of data artifacts throughout the pipeline.
     """
 
+    country = providers.Dependency()
+
     combined_stage = providers.Singleton(
         DataArtifactRef,
         stage="combined_monthly",
+        country=country,
     )
 
     spatially_imputed_era5_stage = providers.Singleton(
         DataArtifactRef,
         stage="era5_spatially_imputed",
+        country=country,
     )
 
     spatially_imputed_stage = providers.Singleton(
         DataArtifactRef,
         stage="combined_with_spatial_interpolation",
+        country=country,
     )
 
     generated_features_stage = providers.Singleton(
         DataArtifactRef,
         stage="generated_features",
+        country=country,
     )
 
     ml_imputer_sampled_super_stage = providers.Singleton(
         DataArtifactRef,
         stage="sampled",
+        country=country,
     )
 
     ml_imputed_super_stage = providers.Singleton(
         DataArtifactRef,
         stage="imputed",
+        country=country,
     )
 
     ml_full_model_sample_stage = providers.Singleton(
         DataArtifactRef,
         stage="full_model_sample",
+        country=country,
     )
 
     final_prediction = providers.Singleton(
         DataArtifactRef,
         stage="final_prediction",
+        country=country,
     )
 
 
@@ -180,6 +200,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
 
     data_artifacts_container = providers.Container(
         DataArtifactProvider,
+        country=config.profile.id,
     )
 
     temporal_config = providers.Singleton(
@@ -193,14 +214,16 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         gcp_project=config.gcp.gcp_project,
     )
 
-    gee_india_grid_reference = providers.Callable(
-        _load_india_grid_reference_asset,
-        india_shapefile_asset=config.gcp.gee.india_shapefile_asset,
+    gee_grid_reference = providers.Callable(
+        _load_grid_reference_asset,
+        grid_asset_path=config.gcp.gee.grid_asset_path,
+        expected_grid_cell_count=config.profile.grid_cell_count,
+        profile_id=config.profile.id,
     )
 
     feature_planner = providers.Singleton(
         GriddedFeatureCollectionPlanner,
-        grid=gee_india_grid_reference,
+        grid=gee_grid_reference,
     )
 
     gcs_filesystem: providers.Provider[GCSFileSystem] = providers.Singleton(
@@ -232,6 +255,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
 
     in_memory_grid = providers.Singleton(
         _load_in_memory_grid,
+        profile_id=config.profile.id,
     )
 
     ned_pipeline_constructor = providers.Singleton(
@@ -243,6 +267,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     pm25_data_source = providers.Singleton(
         CreaMeasurementsApiDataSource,
         temporal_config=temporal_config,
+        source_ids=config.pm25.source_ids,
     )
 
     pm25_filters = providers.Singleton(
@@ -261,6 +286,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         CombinedStorage,
         filesystem=gcs_filesystem,
         destination_bucket=config.gcp.combined_bucket,
+        profile_id=config.profile.id,
     )
 
     archived_wide_combiner = providers.Singleton(
@@ -290,11 +316,13 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         archive_storage=archive_storage,
         feature_planner=feature_planner,
         temporal_config=temporal_config,
+        profile_id=config.profile.id,
     )
 
     combine_planner = providers.Singleton(
         CombinePlanner,
         temporal_config=temporal_config,
+        n_grid_cells=config.profile.grid_cell_count,
     )
 
     daily_spatial_interpolator = providers.Singleton(
@@ -310,6 +338,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         temporal_config=temporal_config,
         input_data_artifact=data_artifacts_container.combined_stage.provided,
         output_data_artifact=data_artifacts_container.spatially_imputed_era5_stage.provided,
+        n_grid_cells=config.profile.grid_cell_count,
     )
 
     spatial_interpolation_recombiner = providers.Singleton(
@@ -349,6 +378,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         ModelStorage,
         filesystem=gcs_filesystem,
         bucket_name=config.gcp.model_storage_bucket,
+        profile_id=config.profile.id,
     )
 
     ml_model_def_factory = providers.Factory(
@@ -457,6 +487,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     final_result_writers = providers.Singleton(
         define_result_writers,
         storage=final_result_storage,
+        profile_id=config.profile.id,
     )
 
 
@@ -479,7 +510,18 @@ def init_dependencies_from_env() -> Pm25mlContainer:
     )
     container.config.gcp.final_result_bucket.from_env("FINAL_RESULT_BUCKET_NAME")
 
-    container.config.gcp.gee.india_shapefile_asset.from_env("INDIA_SHAPEFILE_ASSET")
+    container.config.profile.id.from_env("PIPELINE_PROFILE")
+    container.config.profile.grid_cell_count.from_env(
+        "PROFILE_GRID_CELL_COUNT",
+        as_=lambda x: int(x),
+    )
+
+    container.config.gcp.gee.grid_asset_path.from_env("GEE_GRID_ASSET_PATH")
+    container.config.pm25.source_ids.from_env(
+        "PM25_SOURCE_IDS",
+        as_=lambda x: tuple(part.strip() for part in x.split(",") if part.strip()),
+        default="cpcb",
+    )
 
     container.config.max_parallel_tasks.from_env(
         "MAX_PARALLEL_TASKS",

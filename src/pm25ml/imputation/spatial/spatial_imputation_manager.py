@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 import polars as pl
 from arrow import Arrow
 
-from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.imputation.spatial.daily_spatial_interpolator import DailySpatialInterpolator
@@ -22,20 +21,24 @@ class SpatialImputationValidationError(Exception):
 class SpatialImputationManager:
     """Manage the spatial imputation of data using a specified imputer."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         combined_storage: CombinedStorage,
         spatial_imputer: DailySpatialInterpolator,
         temporal_config: TemporalConfig,
         input_data_artifact: DataArtifactRef,
         output_data_artifact: DataArtifactRef,
+        n_grid_cells: int,
     ) -> None:
         """
         Initialize the SpatialImputationManager.
 
         :param combined_storage: The storage where combined data is stored.
         :param spatial_imputer: The imputer used for spatial interpolation.
-        :param months: A collection of Arrow objects representing the months to process.
+        :param temporal_config: The temporal configuration that defines the months to process.
+        :param input_data_artifact: The stage to read monthly combined input data from.
+        :param output_data_artifact: The stage to write spatially imputed output data to.
+        :param n_grid_cells: The expected number of grid cells for validation.
         """
         self.combined_storage = combined_storage
         self.spatial_imputer = spatial_imputer
@@ -43,6 +46,7 @@ class SpatialImputationManager:
         self.months_as_ids = [month.format("YYYY-MM") for month in self.months]
         self.input_data_artifact = input_data_artifact
         self.output_data_artifact = output_data_artifact
+        self.n_grid_cells = n_grid_cells
 
     def impute(self) -> None:
         """Perform spatial imputation for each month."""
@@ -51,7 +55,7 @@ class SpatialImputationManager:
         logger.info(
             f"Scanning combined monthly data for spatial imputation with regex: {column_regex}",
         )
-        combined_dataset = self.combined_storage.scan_stage("combined_monthly").select(
+        combined_dataset = self.combined_storage.scan_stage(self.input_data_artifact.stage).select(
             "month",
             "grid_id",
             "date",
@@ -173,7 +177,7 @@ class SpatialImputationManager:
         month: str,
         expected_columns: Collection[str],
     ) -> None:
-        expected_rows = self._days_in_month(month) * VALID_COUNTRIES["india"]
+        expected_rows = self._days_in_month(month) * self.n_grid_cells
 
         final_combined_metadata = self.combined_storage.read_dataframe_metadata(
             result_subpath=self.output_data_artifact.for_month(month),

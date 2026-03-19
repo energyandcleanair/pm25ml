@@ -15,12 +15,17 @@ BASE_URI = "https://api.energyandcleanair.org"
 class CreaMeasurementsApiDataSource:
     """Data source for CREA measurements and stations."""
 
-    def __init__(self, temporal_config: TemporalConfig) -> None:
+    def __init__(
+        self,
+        temporal_config: TemporalConfig,
+        source_ids: tuple[str, ...],
+    ) -> None:
         """Initialize the data source."""
         self._station_stats_cache: pl.DataFrame | None = None
         self._stations_cache: pl.DataFrame | None = None
 
         self.temporal_config = temporal_config
+        self.source_ids = source_ids
         self._station_stats_lock = threading.Lock()
         self._stations_lock = threading.Lock()
 
@@ -32,10 +37,10 @@ class CreaMeasurementsApiDataSource:
         """
         with self._station_stats_lock:
             if self._station_stats_cache is not None:
-                logger.info("Using cached station stats for stations in India")
+                logger.info("Using cached station stats for sources %s", self._source_query_value)
                 return self._station_stats_cache
 
-            logger.info("Building station stats for stations for India")
+            logger.info("Building station stats for sources %s", self._source_query_value)
 
             # Generate a URL per month between min_date and max_date. The date_to value
             # is inclusive, not exclusive
@@ -52,7 +57,7 @@ class CreaMeasurementsApiDataSource:
                     "&process_id=station_day_mad"
                     f"&date_from={start}"
                     f"&date_to={end}"
-                    "&source=cpcb"
+                    f"&source={self._source_query_value}"
                     "&pollutant=pm25"
                 )
                 for start, end in month_ranges
@@ -78,20 +83,23 @@ class CreaMeasurementsApiDataSource:
             self._station_stats_cache = results.collect()
             return self._station_stats_cache
 
-    def fetch_stations_for_india(self) -> pl.DataFrame:
+    def fetch_stations(self) -> pl.DataFrame:
         """
-        Fetch station information for India.
+        Fetch station information for the configured profile.
 
         The results will be cached in memory for the instance for subsequent calls.
         """
         with self._stations_lock:
             if self._stations_cache is not None:
-                logger.info("Using cached stations for India")
+                logger.info("Using cached stations for sources %s", self._source_query_value)
                 return self._stations_cache
 
-            logger.info("Fetching stations for India")
+            logger.info("Fetching stations for sources %s", self._source_query_value)
 
-            url = f"{BASE_URI}/stations?format=csv&source=cpcb&with_data_only=false"
+            url = (
+                f"{BASE_URI}/stations?format=csv&source={self._source_query_value}"
+                "&with_data_only=false"
+            )
 
             station_data = pl.read_csv(url)
 
@@ -121,7 +129,7 @@ class CreaMeasurementsApiDataSource:
 
     def fetch_station_data(self, start_date: Arrow, end_date: Arrow) -> pl.DataFrame:
         """Fetch station data for a given date range."""
-        logger.info("Fetching station data for India")
+        logger.info("Fetching station data for sources %s", self._source_query_value)
 
         start_formatted = start_date.format("YYYY-MM-DD")
         end_formatted = end_date.format("YYYY-MM-DD")
@@ -132,7 +140,7 @@ class CreaMeasurementsApiDataSource:
             "&process_id=station_day_mad"
             f"&date_from={start_formatted}"
             f"&date_to={end_formatted}"
-            "&source=cpcb"
+            f"&source={self._source_query_value}"
             "&pollutant=pm25"
         )
 
@@ -140,3 +148,7 @@ class CreaMeasurementsApiDataSource:
             date=pl.col("date").cast(pl.Date),
             value=pl.col("value").cast(pl.Float32),
         )
+
+    @property
+    def _source_query_value(self) -> str:
+        return ",".join(self.source_ids)

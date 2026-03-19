@@ -3,16 +3,19 @@ from unittest.mock import MagicMock
 from arrow import Arrow
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.hive_path import HivePath
-from pm25ml.imputation.spatial.spatial_imputation_manager import SpatialImputationManager
+from pm25ml.imputation.spatial.spatial_imputation_manager import (
+    SpatialImputationManager,
+)
 import polars as pl
 from pyarrow.parquet import FileMetaData
-from pm25ml.collectors.validate_configuration import VALID_COUNTRIES
 from pyarrow import schema
 
 from pm25ml.setup.date_params import TemporalConfig
 
-INPUT_DATA_ARTIFACT = DataArtifactRef(stage="combined_monthly")
-OUTPUT_DATA_ARTIFACT = DataArtifactRef(stage="era5_spatially_imputed")
+TEST_COUNTRY = "india"
+INPUT_DATA_ARTIFACT = DataArtifactRef(stage="combined_monthly", country=TEST_COUNTRY)
+OUTPUT_DATA_ARTIFACT = DataArtifactRef(stage="era5_spatially_imputed", country=TEST_COUNTRY)
+N_GRID_CELLS = 33074
 
 
 @pytest.fixture
@@ -75,7 +78,7 @@ def create_mock_file_metadata(
     schema_mock.names = ["month", "grid_id", "date", "value_column_regex"]
 
     mock = MagicMock(spec=FileMetaData)
-    mock.num_rows = days_in_month * VALID_COUNTRIES["india"]
+    mock.num_rows = days_in_month * N_GRID_CELLS
     mock.schema.to_arrow_schema.return_value = schema_mock
 
     return mock
@@ -85,7 +88,7 @@ def calculate_expected_rows(month: str) -> int:
     month_as_arrow = Arrow.strptime(month, "%Y-%m")
     month_end = month_as_arrow.shift(months=1).replace(day=1)
     days_in_month = (month_end - month_as_arrow).days
-    return days_in_month * VALID_COUNTRIES["india"]
+    return days_in_month * N_GRID_CELLS
 
 
 def test__impute__all_months_available__processes_all_months(
@@ -110,6 +113,7 @@ def test__impute__all_months_available__processes_all_months(
         ),
         input_data_artifact=INPUT_DATA_ARTIFACT,
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
+        n_grid_cells=N_GRID_CELLS,
     )
 
     # Call the method under test
@@ -121,6 +125,7 @@ def test__impute__all_months_available__processes_all_months(
         combined_storage_mock.write_to_destination,
         fake_data_result_map["2023-01"].select("grid_id", "date", pl.col("value_column_regex")),
         HivePath.from_args(
+            country=TEST_COUNTRY,
             stage="era5_spatially_imputed",
             month="2023-01",
         ),
@@ -129,6 +134,7 @@ def test__impute__all_months_available__processes_all_months(
         combined_storage_mock.write_to_destination,
         fake_data_result_map["2023-02"].select("grid_id", "date", pl.col("value_column_regex")),
         HivePath.from_args(
+            country=TEST_COUNTRY,
             stage="era5_spatially_imputed",
             month="2023-02",
         ),
@@ -144,7 +150,11 @@ def test__impute__missing_months__raises_value_error(
     combined_storage_mock = MagicMock()
 
     # Mock data
-    months = [Arrow(2023, 1, 1), Arrow(2023, 2, 1), Arrow(2023, 3, 1)]  # Add an extra month
+    months = [
+        Arrow(2023, 1, 1),
+        Arrow(2023, 2, 1),
+        Arrow(2023, 3, 1),
+    ]  # Add an extra month
 
     combined_storage_mock.scan_stage.return_value = fake_data_with_missing.lazy()
     combined_storage_mock.does_dataset_exist.side_effect = lambda ds_name: False
@@ -159,6 +169,7 @@ def test__impute__missing_months__raises_value_error(
         ),
         input_data_artifact=INPUT_DATA_ARTIFACT,
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
+        n_grid_cells=N_GRID_CELLS,
     )
 
     # Call the method under test and assert exception
@@ -182,7 +193,7 @@ def test__impute__some_months_already_uploaded__skips_those_months(
     combined_storage_mock.scan_stage.return_value = fake_data_with_missing.lazy()
     combined_storage_mock.does_dataset_exist.side_effect = (
         lambda ds_name: ds_name
-        == HivePath.from_args(stage="era5_spatially_imputed", month="2023-01")
+        == HivePath.from_args(country=TEST_COUNTRY, stage="era5_spatially_imputed", month="2023-01")
     )
     combined_storage_mock.read_dataframe_metadata.side_effect = create_mock_file_metadata
 
@@ -196,6 +207,7 @@ def test__impute__some_months_already_uploaded__skips_those_months(
         ),
         input_data_artifact=INPUT_DATA_ARTIFACT,
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
+        n_grid_cells=N_GRID_CELLS,
     )
 
     # Call the method under test
@@ -207,6 +219,7 @@ def test__impute__some_months_already_uploaded__skips_those_months(
         combined_storage_mock.write_to_destination,
         fake_data_result_map["2023-02"].select("grid_id", "date", pl.col("value_column_regex")),
         HivePath.from_args(
+            country=TEST_COUNTRY,
             stage="era5_spatially_imputed",
             month="2023-02",
         ),

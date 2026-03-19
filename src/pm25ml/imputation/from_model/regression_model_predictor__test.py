@@ -12,10 +12,14 @@ from morefs.memory import MemFS
 from polars.testing import assert_frame_equal
 
 ARBITRARY_MODEL_NAME = "aod"
+TEST_COUNTRY = "india"
 
-ARBRITARY_INPUT_ARTIFACT = DataArtifactRef(stage="input_stage")
+ARBRITARY_INPUT_ARTIFACT = DataArtifactRef(stage="input_stage", country=TEST_COUNTRY)
 
-OUTPUT_ARTIFACT_STAGE = DataArtifactRef(stage=f"imputed+{ARBITRARY_MODEL_NAME}")
+OUTPUT_ARTIFACT_STAGE = DataArtifactRef(
+    stage=f"imputed+{ARBITRARY_MODEL_NAME}",
+    country=TEST_COUNTRY,
+)
 
 
 @pytest.fixture
@@ -55,6 +59,7 @@ def combined_storage_with_data(tmp_path):
     storage = CombinedStorage(
         filesystem=fs,
         destination_bucket=str(tmp_path),
+        profile_id=TEST_COUNTRY,
     )
 
     # Prepare the required files using CombinedStorage's write_to_destination

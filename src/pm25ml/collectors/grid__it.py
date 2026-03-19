@@ -43,9 +43,9 @@ EXPECTED_50KM_GRID_ID = 2494
 def test__load_grid_from_zip__valid_shapefile_zip__grid_loaded():
     """Test loading a grid from a valid shapefile zip file."""
     # Arrange
-    path_to_shapefile_zip = Path("./assets/grid_india_10km_shapefiles.zip")
-    path_to_csv_50km = Path("./assets/grid_intersect_with_50km.csv")
-    path_to_region_parquet = Path("./assets/grid_region.parquet")
+    path_to_shapefile_zip = Path("./assets/india/grid_10km_shapefiles.zip")
+    path_to_csv_50km = Path("./assets/india/grid_intersect_with_50km.csv")
+    path_to_region_parquet = Path("./assets/india/grid_region.parquet")
 
     # Act
     grid = load_grid_from_files(

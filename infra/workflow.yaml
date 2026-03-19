@@ -4,10 +4,50 @@ main:
     # Initialize environment and continue-from plumbing
     - init_env:
         assign:
-          # Secrets are configured for Cloud Run jobs in run.yaml and run-large.yaml
+          - profile: ${ map.get(args, "profile") }
+          - india_profile_env:
+              GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_india_10km_shapefile
+              PROFILE_GRID_CELL_COUNT: "33074"
+              PM25_SOURCE_IDS: cpcb
+          - in_bd_profile_env:
+              GEE_GRID_ASSET_PATH: null
+              PROFILE_GRID_CELL_COUNT: null
+              PM25_SOURCE_IDS: null
+
+    - validate_profile:
+        switch:
+          - condition: ${ profile == null }
+            next: missing_profile
+          - condition: ${ profile == "india" }
+            next: set_india_profile_env
+          - condition: ${ profile == "in+bd" }
+            next: set_in_bd_profile_env
+        next: invalid_profile
+
+    - missing_profile:
+        raise: "Missing required workflow arg: profile"
+
+    - invalid_profile:
+        raise: '${ "Invalid profile value: " + string(profile) + ". Expected one of: india, in+bd" }'
+
+    - set_india_profile_env:
+        assign:
+          - profile_env: ${ india_profile_env }
+        next: build_common_env
+
+    - set_in_bd_profile_env:
+        assign:
+          - profile_env: ${ in_bd_profile_env }
+        next: build_common_env
+
+    - build_common_env:
+        assign:
           - common_env:
               GCP_PROJECT: vital-form-455413-p8
-              INDIA_SHAPEFILE_ASSET: projects/vital-form-455413-p8/assets/grid_india_10km_shapefile
+              PIPELINE_PROFILE: ${profile}
+              GEE_GRID_ASSET_PATH: ${profile_env.GEE_GRID_ASSET_PATH}
+              PROFILE_GRID_CELL_COUNT: ${profile_env.PROFILE_GRID_CELL_COUNT}
+              PM25_SOURCE_IDS: ${profile_env.PM25_SOURCE_IDS}
               CSV_BUCKET_NAME: crea-ee-csv-buffer
               INGEST_ARCHIVE_BUCKET_NAME: crea-pm25ml-ingest-archive
               COMBINED_BUCKET_NAME: crea-pm25ml-combined
