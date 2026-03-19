@@ -182,7 +182,7 @@ def test__scan_stage__profile_storage__includes_country_partition(
         storage = CombinedStorage(
             filesystem=in_memory_filesystem,
             destination_bucket=DESTINATION_BUCKET,
-            profile_id="in+bd",
+            profile_id="in-bd",
         )
 
         mock_lazy_frame = pl.LazyFrame(example_table)
@@ -191,7 +191,7 @@ def test__scan_stage__profile_storage__includes_country_partition(
         storage.scan_stage("valid_stage")
 
         mock_scan.assert_called_once_with(
-            f"gs://{DESTINATION_BUCKET}/country=in+bd/stage=valid_stage/",
+            f"gs://{DESTINATION_BUCKET}/country=in-bd/stage=valid_stage/",
             hive_partitioning=True,
         )
 
@@ -215,7 +215,9 @@ def test__does_dataset_exist__dataset_written__returns_true(
     assert storage.does_dataset_exist("result_path")
 
 
-def test__does_dataset_exist__dataset_not_written__returns_false(in_memory_filesystem) -> None:
+def test__does_dataset_exist__dataset_not_written__returns_false(
+    in_memory_filesystem,
+) -> None:
     storage = CombinedStorage(
         filesystem=in_memory_filesystem,
         destination_bucket=DESTINATION_BUCKET,

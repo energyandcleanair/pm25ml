@@ -163,7 +163,8 @@ def test__load_model__lgbm_model_saved_and_loaded__model_and_predictions_match(
         warnings.simplefilter("ignore", UserWarning)
         to_predict = np.array([[1, 2]], dtype=np.float64)
         assert np.allclose(
-            loaded_model.model.predict(to_predict), trained_lgbm_model.predict(to_predict)
+            loaded_model.model.predict(to_predict),
+            trained_lgbm_model.predict(to_predict),
         )
 
 
@@ -193,7 +194,7 @@ def test__load_latest_model__xgb_model_with_multiple_runs__latest_model_loaded(
 def test__save_model__profile_storage__writes_under_country_partition(
     in_memory_filesystem, trained_xgb_model
 ):
-    model_storage = ModelStorage(in_memory_filesystem, "test_bucket", profile_id="in+bd")
+    model_storage = ModelStorage(in_memory_filesystem, "test_bucket", profile_id="in-bd")
     validated_model = ValidatedModel(
         model=trained_xgb_model,
         cv_results=pd.DataFrame({"metric": [0.1, 0.2]}),
@@ -205,5 +206,5 @@ def test__save_model__profile_storage__writes_under_country_partition(
     expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
 
     assert model_storage.filesystem.exists(
-        f"test_bucket/country=in+bd/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
+        f"test_bucket/country=in-bd/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
     )

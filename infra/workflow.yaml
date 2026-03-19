@@ -10,7 +10,7 @@ main:
               PROFILE_GRID_CELL_COUNT: "33074"
               PM25_SOURCE_IDS: cpcb
           - in_bd_profile_env:
-              GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_in+bd_10km_shapefile
+              GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_in-bd_10km_shapefile
               PROFILE_GRID_CELL_COUNT: "34357"
               PM25_SOURCE_IDS: cpcb
 
@@ -20,7 +20,7 @@ main:
             next: missing_profile
           - condition: ${ profile == "india" }
             next: set_india_profile_env
-          - condition: ${ profile == "in+bd" }
+          - condition: ${ profile == "in-bd" }
             next: set_in_bd_profile_env
         next: invalid_profile
 
@@ -28,7 +28,7 @@ main:
         raise: "Missing required workflow arg: profile"
 
     - invalid_profile:
-        raise: '${ "Invalid profile value: " + string(profile) + ". Expected one of: india, in+bd" }'
+        raise: '${ "Invalid profile value: " + string(profile) + ". Expected one of: india, in-bd" }'
 
     - set_india_profile_env:
         assign:

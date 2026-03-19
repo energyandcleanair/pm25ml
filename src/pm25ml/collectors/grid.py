@@ -213,7 +213,7 @@ def load_grid_from_files(
         grid_id_to_regions = pl.read_parquet(
             path_to_region_parquet,
         ).select(
-            pl.col("grid_id").alias(Grid.GRID_ID_COL),
+            pl.col("grid_id").cast(pl.Int64).alias(Grid.GRID_ID_COL),
             pl.col("k_region").alias(Grid.REGION_COL),
         )
 

@@ -202,7 +202,7 @@ def _build_local_shapefile_zip_path(profile_id: str) -> Path:
 
 def _main(container: Pm25mlContainer) -> None:
     # Ensure GEE auth/init resource has been created before EE API calls.
-    _ = container.gee_resource()
+    _ = container.gee_auth()
 
     profile_id = container.config.profile.id()
     config = GridAssetConfig(
