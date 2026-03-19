@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, cast
 
-from ee import Algorithms
 from ee.ee_date import Date
 from ee.ee_list import List
 from ee.image import Image
@@ -71,6 +70,10 @@ class GriddedFeatureCollectionPlanner:
         :return: A feature plan containing the processed collection and column mappings.
         :rtype: FeaturePlan
         """
+        if not dates:
+            msg = "Expected at least one date for daily averaging."
+            raise ValueError(msg)
+
         original_raster_scale = self._get_collection_scale(collection_name, selected_bands)
 
         ids = ["date", "grid_id"]
@@ -81,34 +84,54 @@ class GriddedFeatureCollectionPlanner:
         wanted_properties = ids + selected_bands
         column_mappings = dict(zip(exported_properties, wanted_properties))
 
-        # This gets the whole collection and selects the properties we want.
-        collection = ImageCollection(collection_name).select(selected_bands)
-
         date_strings = [date.format(ISO8601_DATE_ONLY) for date in dates]
         gee_dates = List(date_strings)
+        date_window_start = Date(min(date_strings))
+        date_window_end = Date(max(date_strings)).advance(1, "day")
+        grid_geometry = self.grid.geometry()
 
-        def daily_mean_image(date_string: ComputedObject) -> List:
+        # Prefilter once by location and date window so daily map work starts from a smaller set.
+        collection = (
+            ImageCollection(collection_name)
+            .select(selected_bands)
+            .filterBounds(grid_geometry)
+            .filterDate(date_window_start, date_window_end)
+        )
+
+        # Annotate each image with a day key, then deduplicate days before
+        # collecting available dates to reduce metadata transfer.
+        collection_by_day = collection.map(
+            lambda im: im.set(
+                "day",
+                Date(im.get("system:time_start")).format(ISO8601_DATE_ONLY),
+            )
+        )
+
+        # Keep only requested dates that actually have source imagery.
+        available_dates = List(collection_by_day.distinct("day").aggregate_array("day")).sort()
+        # ee.List has no intersection() in Python; emulate requested ∩ available while
+        # preserving the original requested-date order.
+        unavailable_dates = gee_dates.removeAll(available_dates)
+        dates_to_process = gee_dates.removeAll(unavailable_dates)
+
+        def daily_mean_image(date_string: ComputedObject) -> Image:
             start = Date(date_string)
             end = start.advance(1, "day")
 
-            collection_for_day = collection.filterDate(start, end)
-
-            return Algorithms.If(
-                collection_for_day.size().gt(0),
-                collection_for_day.filterBounds(self.grid.geometry())
+            return (
+                collection.filterDate(start, end)
                 # Single value per pixel for the day for each band.
                 .reduce(Reducer.mean())
                 # We set the date property to the date to carry through
                 # to the final export.
-                .set("date", start),
-                None,
+                .set("date", start)
             )
 
         # We create an ImageCollection of daily composites for the month, each
         # the pixel-wise mean value for the day.
         images = ImageCollection.fromImages(
             # This does a server side map operation to create an image for each date.
-            gee_dates.map(daily_mean_image).removeAll([None]),
+            dates_to_process.map(daily_mean_image),
         )
 
         # We then average the values for each grid cell for each date.
@@ -169,16 +192,13 @@ class GriddedFeatureCollectionPlanner:
         column_mappings = dict(zip(exported_properties, wanted_properties))
 
         image = Image(image_name).select(selected_bands)
-        collection = ImageCollection.fromImages([image])
-        # The only thing we need to do for this is to regrid.
-        processed_image: FeatureCollection = collection.map(
-            lambda img: img.reduceRegions(
-                collection=self.grid,
-                reducer=Reducer.mean(),
-                crs=INDIA_CRS,
-                scale=original_raster_scale,
-            ),
-        ).flatten()
+        # For a single image, reduce directly instead of wrapping in a one-element collection.
+        processed_image: FeatureCollection = image.reduceRegions(
+            collection=self.grid,
+            reducer=Reducer.mean(),
+            crs=INDIA_CRS,
+            scale=original_raster_scale,
+        )
 
         return FeaturePlan(
             feature_name=self._generate_clean_name("single-image-grid", image_name),
@@ -218,14 +238,29 @@ class GriddedFeatureCollectionPlanner:
         """
         original_raster_scale = self._get_collection_scale(collection_name, [classification_band])
 
+        if not output_names_to_class_values:
+            msg = "Expected at least one output class mapping."
+            raise ValueError(msg)
+
         expected_column_names = list(output_names_to_class_values.keys())
+        class_output_items = list(output_names_to_class_values.items())
+        year_start = f"{year}-01-01T00:00:00"
+        year_end = f"{year + 1}-01-01T00:00:00"
+        grid_geometry = self.grid.geometry()
 
         def add_classes_as_boolean_bands(original_image: Image) -> Image:
             band_column = original_image.select(classification_band)
 
-            new_image = original_image
-            for output_name, class_values in output_names_to_class_values.items():
-                new_image = new_image.addBands(
+            first_output_name, first_class_values = class_output_items[0]
+            derived_image = band_column.remap(
+                first_class_values,
+                [1] * len(first_class_values),
+                0,
+                classification_band,
+            ).rename(first_output_name)
+
+            for output_name, class_values in class_output_items[1:]:
+                derived_image = derived_image.addBands(
                     band_column.remap(
                         class_values,
                         [1] * len(class_values),
@@ -235,16 +270,14 @@ class GriddedFeatureCollectionPlanner:
                     [output_name],
                 )
 
-            return new_image
+            # Keep only the derived boolean class bands to reduce memory pressure.
+            return derived_image
 
         images = (
             ImageCollection(collection_name)
+            .filterBounds(grid_geometry)
+            .filterDate(year_start, year_end)
             .select(classification_band)
-            .filterBounds(self.grid.geometry())
-            .filterDate(
-                f"{year}-01-01T00:00:00",
-                f"{year + 1}-01-01T00:00:00",
-            )
         )
 
         image = Image(
