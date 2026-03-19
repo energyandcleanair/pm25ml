@@ -8,6 +8,7 @@ from pm25ml.collectors.export_pipeline import (
     MissingDataError,
     MissingDataHeuristic,
     PipelineConfig,
+    ValueColumnType,
 )
 from pm25ml.collectors.archived_file_validator import ArchivedFileValidator
 
@@ -34,7 +35,7 @@ def test__collect__validates_all_results__uploads_all_processors(
         processor.get_config_metadata.return_value = PipelineConfig(
             result_subpath="mock_path",
             id_columns=set(),
-            value_column_type_map=set(),
+            value_column_type_map={},
             expected_rows=0,
         )
         processor.upload.return_value = None
@@ -62,7 +63,7 @@ def test__collect__filters_processors_needing_upload__uploads_only_required_proc
         processor.get_config_metadata.return_value = PipelineConfig(
             result_subpath=f"mock_path_{i}",
             id_columns=set(),
-            value_column_type_map=set(),
+            value_column_type_map={},
             expected_rows=0,
         )
         processor.upload.return_value = None
@@ -95,7 +96,7 @@ def test__run_pipelines_in_parallel__handles_success_and_failure__raises_excepti
         processor.get_config_metadata.return_value = PipelineConfig(
             result_subpath=f"mock_path_{i}",
             id_columns=set(),
-            value_column_type_map=set(),
+            value_column_type_map={},
             expected_rows=0,
         )
 
@@ -117,7 +118,7 @@ def test__run_pipelines_in_parallel__allows_missing_error__runs_pipeline_success
     process_1.get_config_metadata.return_value = PipelineConfig(
         result_subpath="mock_path_1",
         id_columns=set(),
-        value_column_type_map=set(),
+        value_column_type_map={"value": ValueColumnType.FLOAT},
         expected_rows=0,
         consumer_behaviour=PipelineConsumerBehaviour(
             missing_data_heuristic=MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE,
@@ -128,7 +129,7 @@ def test__run_pipelines_in_parallel__allows_missing_error__runs_pipeline_success
     process_2.get_config_metadata.return_value = PipelineConfig(
         result_subpath="mock_path_2",
         id_columns=set(),
-        value_column_type_map=set(),
+        value_column_type_map={"value": ValueColumnType.FLOAT},
         expected_rows=0,
     )
 

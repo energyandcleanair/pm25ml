@@ -3,6 +3,7 @@ from assertpy import assert_that
 from pm25ml.collectors.export_pipeline import (
     MissingDataHeuristic,
     PipelineConsumerBehaviour,
+    ValueColumnType,
 )
 from pm25ml.combiners.archive.combine_planner import CombinePlan, CombinePlanner
 from pm25ml.collectors.collector import DataCompleteness, UploadResult, PipelineConfig
@@ -14,6 +15,10 @@ from pm25ml.setup.date_params import TemporalConfig
 
 
 N_GRID_CELLS = 33074
+
+
+def _value_column_type_map(*column_names: str) -> dict[str, ValueColumnType]:
+    return {column_name: ValueColumnType.FLOAT for column_name in column_names}
 
 
 def test__CombinePlan__month_id():
@@ -63,7 +68,7 @@ def test__plan__valid_results__returns_combine_plans():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=static_dataset/type=static",
                 id_columns={"grid_id"},
-                value_column_type_map={"s1", "s2"},
+                value_column_type_map=_value_column_type_map("s1", "s2"),
                 expected_rows=N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -72,7 +77,7 @@ def test__plan__valid_results__returns_combine_plans():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=yearly_dataset/year=2023",
                 id_columns={"grid_id"},
-                value_column_type_map={"y1"},
+                value_column_type_map=_value_column_type_map("y1"),
                 expected_rows=N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -81,7 +86,7 @@ def test__plan__valid_results__returns_combine_plans():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset1/month=2023-01",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d1v1", "d1v2"},
+                value_column_type_map=_value_column_type_map("d1v1", "d1v2"),
                 expected_rows=31 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -90,7 +95,7 @@ def test__plan__valid_results__returns_combine_plans():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset2/month=2023-01",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d2v1"},
+                value_column_type_map=_value_column_type_map("d2v1"),
                 expected_rows=28 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -99,7 +104,7 @@ def test__plan__valid_results__returns_combine_plans():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset1/month=2023-02",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d1v1", "d1v2"},
+                value_column_type_map=_value_column_type_map("d1v1", "d1v2"),
                 expected_rows=28 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -108,7 +113,7 @@ def test__plan__valid_results__returns_combine_plans():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset2/month=2023-02",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d2v1"},
+                value_column_type_map=_value_column_type_map("d2v1"),
                 expected_rows=28 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -204,7 +209,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=static_dataset/type=static",
                 id_columns={"grid_id"},
-                value_column_type_map={"s1", "s2"},
+                value_column_type_map=_value_column_type_map("s1", "s2"),
                 expected_rows=N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -213,7 +218,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=yearly_dataset/year=2021",
                 id_columns={"grid_id"},
-                value_column_type_map={"y1"},
+                value_column_type_map=_value_column_type_map("y1"),
                 expected_rows=N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -222,7 +227,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=yearly_dataset/year=2022",
                 id_columns={"grid_id"},
-                value_column_type_map={"y1"},
+                value_column_type_map=_value_column_type_map("y1"),
                 expected_rows=N_GRID_CELLS,
                 consumer_behaviour=PipelineConsumerBehaviour(
                     missing_data_heuristic=MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE
@@ -234,7 +239,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=yearly_dataset/year=2023",
                 id_columns={"grid_id"},
-                value_column_type_map={"y1"},
+                value_column_type_map=_value_column_type_map("y1"),
                 expected_rows=N_GRID_CELLS,
                 consumer_behaviour=PipelineConsumerBehaviour(
                     missing_data_heuristic=MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE
@@ -246,7 +251,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset1/month=2022-12",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d1v1", "d1v2"},
+                value_column_type_map=_value_column_type_map("d1v1", "d1v2"),
                 expected_rows=31 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -255,7 +260,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset1/month=2023-01",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d1v1", "d1v2"},
+                value_column_type_map=_value_column_type_map("d1v1", "d1v2"),
                 expected_rows=31 * N_GRID_CELLS,
                 consumer_behaviour=PipelineConsumerBehaviour(
                     missing_data_heuristic=MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE
@@ -267,7 +272,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset2/month=2023-01",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d2v1"},
+                value_column_type_map=_value_column_type_map("d2v1"),
                 expected_rows=28 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -276,7 +281,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset1/month=2023-02",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d1v1", "d1v2"},
+                value_column_type_map=_value_column_type_map("d1v1", "d1v2"),
                 expected_rows=28 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
@@ -285,7 +290,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
             pipeline_config=PipelineConfig(
                 result_subpath="country=india/dataset=monthly_dataset2/month=2023-02",
                 id_columns={"date", "grid_id"},
-                value_column_type_map={"d2v1"},
+                value_column_type_map=_value_column_type_map("d2v1"),
                 expected_rows=28 * N_GRID_CELLS,
             ),
             completeness=DataCompleteness.COMPLETE,
