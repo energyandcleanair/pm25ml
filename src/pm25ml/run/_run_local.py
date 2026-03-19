@@ -21,6 +21,7 @@ def _ordered_steps() -> list[Step]:
     """Return ordered list of (canonical_step_key, module_path)."""
     base = "pm25ml.run"
     return [
+        Step("s00_preflight", f"{base}.s00_preflight"),
         Step("s01_fetch_and_combine", f"{base}.s01_fetch_and_combine"),
         Step("s02_generate_features", f"{base}.s02_generate_features"),
         Step("s03_sample_for_imputation", f"{base}.s03_sample_for_imputation"),
@@ -36,6 +37,9 @@ def _ordered_steps() -> list[Step]:
 
 _steps = tuple(_ordered_steps())
 _aliases: dict[str, str] = {
+    # s00
+    "preflight": "s00_preflight",
+    "s00_preflight": "s00_preflight",
     # s01
     "fetch_and_combine": "s01_fetch_and_combine",
     "s01_fetch_and_combine": "s01_fetch_and_combine",
@@ -73,7 +77,7 @@ def _main(continue_from: str) -> None:
 
 
 def _resolve_continue_from(continue_from: str) -> str:
-    key = (continue_from or "fetch_and_combine").strip()
+    key = (continue_from or "preflight").strip()
     canonical = _aliases.get(key)
     if not canonical:
         valid = ", ".join(sorted(_aliases.keys()))
@@ -102,5 +106,5 @@ def _identify_start_index(step_key: str) -> int:
 
 
 if __name__ == "__main__":
-    continue_from = sys.argv[1] if len(sys.argv) > 1 else "fetch_and_combine"
+    continue_from = sys.argv[1] if len(sys.argv) > 1 else "preflight"
     _main(continue_from)

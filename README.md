@@ -86,11 +86,27 @@ We suggest running with the following (incomplete) `.env` file:
 ```
 # Name of the GCP project
 GCP_PROJECT=
-# Reference to the shapefile asset in GEE for `assets/grid_india_10km_shapefiles.zip` (which you will need to upload)
-INDIA_SHAPEFILE_ASSET=
+
+# Profile and grid configuration.
+PIPELINE_PROFILE=india
+GEE_GRID_ASSET_PATH=projects/<gcp-project>/assets/grid_india_10km_shapefile
+PROFILE_GRID_CELL_COUNT=33074
+
+# Optional: when GEE_GRID_ASSET_PATH does not exist, s00_preflight will upload
+# this local zip to GCS and ingest it as a table asset.
+# GRID_SHAPEFILE_ZIP_PATH=assets/india/grid_10km_shapefiles.zip
+# Optional: use an already staged zip in GCS instead of uploading from local disk.
+# GEE_GRID_UPLOAD_GCS_URI=gs://<bucket>/<path>/grid_10km_shapefiles.zip
+
+# PM2.5 source IDs (comma-separated)
+PM25_SOURCE_IDS=cpcb
 
 # Bucket for GEE to upload completed CSVs for further processing
 CSV_BUCKET_NAME=
+
+# Bucket used for staging shapefile/table uploads before Earth Engine ingestion.
+GEE_STAGING_BUCKET_NAME=crea-pm25ml-gee-staging
+
 # Bucket to store ingested data in a parquet format (for archiving)
 INGEST_ARCHIVE_BUCKET_NAME=
 # Bucket for storing any processed data

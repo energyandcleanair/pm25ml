@@ -10,9 +10,9 @@ main:
               PROFILE_GRID_CELL_COUNT: "33074"
               PM25_SOURCE_IDS: cpcb
           - in_bd_profile_env:
-              GEE_GRID_ASSET_PATH: null
-              PROFILE_GRID_CELL_COUNT: null
-              PM25_SOURCE_IDS: null
+              GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_in+bd_10km_shapefile
+              PROFILE_GRID_CELL_COUNT: "34357"
+              PM25_SOURCE_IDS: cpcb
 
     - validate_profile:
         switch:
@@ -49,6 +49,7 @@ main:
               PROFILE_GRID_CELL_COUNT: ${profile_env.PROFILE_GRID_CELL_COUNT}
               PM25_SOURCE_IDS: ${profile_env.PM25_SOURCE_IDS}
               CSV_BUCKET_NAME: crea-ee-csv-buffer
+              GEE_STAGING_BUCKET_NAME: crea-pm25ml-gee-staging
               INGEST_ARCHIVE_BUCKET_NAME: crea-pm25ml-ingest-archive
               COMBINED_BUCKET_NAME: crea-pm25ml-combined
               MODEL_STORAGE_BUCKET_NAME: crea-pm25ml-models
@@ -59,7 +60,7 @@ main:
               END_MONTH: "2025-09-01"
               RUNNING_IN_CLOUD_BATCH: "true"
           # Extract continue_from arg (string stage name); if empty, start at first step
-          - continue_from: ${ default(map.get(args, "continue_from"), "collect_data_and_combine") }
+          - continue_from: ${ default(map.get(args, "continue_from"), "preflight") }
 
     # Convert common_env map to Cloud Run env list format [{name, value}, ...]
     - build_env_list:
@@ -71,6 +72,8 @@ main:
     # Single dispatcher: jump directly to requested starting step, else proceed from first
     - dispatch_continue_from:
         switch:
+          - condition: ${ continue_from == "preflight" }
+            next: preflight
           - condition: ${ continue_from == "collect_data_and_combine" }
             next: collect_data_and_combine
           - condition: ${ continue_from == "generate_features" }
@@ -93,6 +96,24 @@ main:
 
     - invalid_continue_from:
         raise: '${ "Invalid continue_from value: " + string(continue_from) }'
+
+    - preflight:
+        call: googleapis.run.v1.namespaces.jobs.run
+        args:
+          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          location: europe-west1
+          connector_params:
+            timeout: 3600
+          body:
+            overrides:
+              containerOverrides:
+                - args:
+                    - python
+                    - -m
+                    - pm25ml.run.s00_preflight
+                  env: ${common_env_list}
+        result: run_job_result
+        next: collect_data_and_combine
 
     - collect_data_and_combine:
         call: googleapis.run.v1.namespaces.jobs.run

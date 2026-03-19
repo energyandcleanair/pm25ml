@@ -503,6 +503,7 @@ def init_dependencies_from_env() -> Pm25mlContainer:
 
     container.config.gcp.gcp_project.from_env("GCP_PROJECT")
     container.config.gcp.csv_bucket.from_env("CSV_BUCKET_NAME")
+    container.config.gcp.gee_staging_bucket.from_env("GEE_STAGING_BUCKET_NAME")
     container.config.gcp.archive_bucket.from_env("INGEST_ARCHIVE_BUCKET_NAME")
     container.config.gcp.combined_bucket.from_env("COMBINED_BUCKET_NAME")
     container.config.gcp.model_storage_bucket.from_env(
