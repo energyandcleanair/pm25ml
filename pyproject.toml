@@ -76,6 +76,7 @@ gdal = "3.6.2"
 pydap = "^3.5.5"
 owslib = "^0.34.1"
 altair = "^5.4.0"
+cartopy = "^0.25.0"
 
 [tool.poetry.group.reference.dependencies]
 pandas = "^2.2.3"
