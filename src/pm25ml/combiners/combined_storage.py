@@ -173,9 +173,9 @@ class CombinedStorage:
         :param stage: The stage to sink the LazyFrame to.
         """
         path = f"gs://{self.destination_bucket}/{self._stage_path(stage)}/"
-        scheme = pl.PartitionParted(
+        scheme = pl.PartitionBy(
             base_path=path,
-            by=["month"],
+            key=["month"],
             include_key=False,
         )
         lf.sink_parquet(

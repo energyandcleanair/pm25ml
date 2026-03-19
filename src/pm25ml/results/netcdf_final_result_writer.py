@@ -90,9 +90,9 @@ class NetCdfResultWriter(FinalResultWriter):
                 "chunksizes": (16, 82, 72),
                 "shuffle": True,
             }
-            encoding: dict[str, dict[str, Any]] = dict.fromkeys(
-                ds.data_vars, compression_args,
-            )
+            encoding: dict[str, dict[str, Any]] = {
+                str(variable): compression_args.copy() for variable in ds.data_vars
+            }
 
             # Persist to NetCDF using the h5netcdf engine (netCDF4-compatible)
             ds.to_netcdf(

@@ -138,7 +138,7 @@ class DataArtifactProvider(containers.DeclarativeContainer):
     and management of data artifacts throughout the pipeline.
     """
 
-    country = providers.Dependency()
+    country: providers.Dependency = providers.Dependency()
 
     combined_stage = providers.Singleton(
         DataArtifactRef,
