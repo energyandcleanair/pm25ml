@@ -28,6 +28,6 @@ spec:
                     secretKeyRef:
                       name: EARTHDATA_PASSWORD
                       key: latest
-          maxRetries: 0
+          maxRetries: 2
           timeoutSeconds: "86400"
           serviceAccountName: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
