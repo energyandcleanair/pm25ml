@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from ee.batch import Export, Task
 from nanoid import generate
-from polars import DataFrame, Float32
+from polars import DataFrame, Float32, Int64, String
 
 from pm25ml.collectors.export_pipeline import (
     ExportPipeline,
@@ -132,58 +132,74 @@ class GeeExportPipeline(ExportPipeline):
                 task.cancel()
 
     def _process(self, table: DataFrame) -> DataFrame:
-        mappings = self.plan.column_mappings
+        table = self._validate_and_rename_columns(table)
+        table = self._ensure_non_empty_export(table)
+        table = self._normalize_grid_id(table)
+        table = self._complete_missing_rows(table)
+        table = self._coerce_value_columns(table)
+        self._validate_non_null_columns(table)
+        return self._sort_processed_table(table)
+
+    def _validate_and_rename_columns(self, table: DataFrame) -> DataFrame:
         expected_intermediate_columns = self.plan.intermediate_columns
 
-        # Ensure the table has the expected columns
         missing_columns = [col for col in expected_intermediate_columns if col not in table.columns]
         if missing_columns:
             msg = f"Table is missing expected columns: {', '.join(missing_columns)}"
             raise ValueError(msg)
 
-        # Drop extra columns that are not in the expected columns
         extra_columns = [col for col in table.columns if col not in expected_intermediate_columns]
         if extra_columns:
             logger.warning(f"Dropping extra columns from table: {', '.join(extra_columns)}")
             table = table.drop(extra_columns)
 
-        # Rename columns according to the mappings
-        table = table.rename(mappings)
+        return table.rename(self.plan.column_mappings)
 
-        # Convert grid_id to integer if it exists in the table
-        if "grid_id" in table.columns:
-            table = table.with_columns(table["grid_id"].cast(int))
+    def _ensure_non_empty_export(self, table: DataFrame) -> DataFrame:
+        if table.height == 0:
+            msg = f"No rows were exported for feature '{self.plan.feature_name}'."
+            raise MissingDataError(msg)
+        return table
 
-        # Complete missing rows for date and grid_id combinations
-        if "date" in table.columns and "grid_id" in table.columns:
-            # Take dates from feature plan
-            if not self.plan.dates:
-                msg = "Feature plan does not have dates defined but has a date column."
-                raise ValueError(msg)
-            dates = [date.format("YYYY-MM-DDTHH:mm:ss") for date in self.plan.dates]
-            grid_ids = table["grid_id"].unique().to_list()
+    def _normalize_grid_id(self, table: DataFrame) -> DataFrame:
+        if "grid_id" not in table.columns:
+            return table
+        return table.with_columns(table["grid_id"].cast(Int64))
 
-            full_index = DataFrame(
-                product(dates, grid_ids),
-                schema=["date", "grid_id"],
-            )
+    def _complete_missing_rows(self, table: DataFrame) -> DataFrame:
+        if "date" not in table.columns or "grid_id" not in table.columns:
+            return table
 
-            table = table.join(
-                full_index,
-                on=["date", "grid_id"],
-                how="full",
-                coalesce=True,
-            )
+        if not self.plan.dates:
+            msg = "Feature plan does not have dates defined but has a date column."
+            raise ValueError(msg)
 
-        # Coerce value columns to float
+        dates = [date.format("YYYY-MM-DDTHH:mm:ss") for date in self.plan.dates]
+        grid_ids = table["grid_id"].unique().to_list()
+        full_index = DataFrame(
+            product(dates, grid_ids),
+            schema={"date": String, "grid_id": Int64},
+            orient="row",
+        )
+        return table.join(
+            full_index,
+            on=["date", "grid_id"],
+            how="full",
+            coalesce=True,
+        )
+
+    def _coerce_value_columns(self, table: DataFrame) -> DataFrame:
         for value_column in self.plan.expected_value_columns:
-            if table[value_column].dtype != Float32():
-                logger.warning(
-                    f"Coercing column '{value_column}' to float32 from {table[value_column].dtype}",
-                )
-                table = table.with_columns(table[value_column].cast(Float32(), strict=False))
+            if table[value_column].dtype == Float32():
+                continue
 
-        # Test that the columns aren't all null values
+            logger.warning(
+                f"Coercing column '{value_column}' to float32 from {table[value_column].dtype}",
+            )
+            table = table.with_columns(table[value_column].cast(Float32(), strict=False))
+        return table
+
+    def _validate_non_null_columns(self, table: DataFrame) -> None:
         columns_null_values = [
             col
             for col in self.plan.expected_value_columns.union(self.plan.expected_id_columns)
@@ -191,21 +207,14 @@ class GeeExportPipeline(ExportPipeline):
         ]
         if columns_null_values:
             msg = f"Table has columns with all null values: {', '.join(columns_null_values)}"
-            raise ValueError(
-                msg,
-            )
+            raise ValueError(msg)
 
-        # Sort the table (if possible) by preferred order
-        preferred_sort_order = [
-            "date",
-            "grid_id",
-        ]
+    def _sort_processed_table(self, table: DataFrame) -> DataFrame:
+        preferred_sort_order = ["date", "grid_id"]
         columns_to_sort = [col for col in preferred_sort_order if col in table.columns]
-        if columns_to_sort:
-            table = table.sort(
-                by=columns_to_sort,
-            )
-        return table
+        if not columns_to_sort:
+            return table
+        return table.sort(by=columns_to_sort)
 
 
 class GeePipelineConstructor:

@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, call, patch
 
 import arrow
 import pytest
-from polars import DataFrame, Int64
+from polars import DataFrame, Int64, String
 from polars.testing import assert_frame_equal
 
 from pm25ml.collectors.export_pipeline import MissingDataError, ValueColumnType
@@ -107,6 +107,22 @@ def mock_intermediate_storage_all_null_values():
         "extra_col": [7, 8, 9],
     }
     table = DataFrame(data)
+    storage = MagicMock(spec=GeeIntermediateStorage)
+    storage.bucket = "mock_bucket"
+    storage.get_intermediate_by_id.return_value = table
+    return storage
+
+
+@pytest.fixture
+def mock_intermediate_storage_empty_table():
+    table = DataFrame(
+        schema={
+            "date": String,
+            "grid_id": Int64,
+            "col1": Int64,
+            "col2": Int64,
+        },
+    )
     storage = MagicMock(spec=GeeIntermediateStorage)
     storage.bucket = "mock_bucket"
     storage.get_intermediate_by_id.return_value = table
@@ -453,4 +469,22 @@ def test_GeeExportPipeline_process__feature_plan_no_data_available__raises_error
         pipeline.upload()
 
     # Ensure that no upload was attempted
+    mock_archive_storage.write_to_destination.assert_not_called()
+
+
+def test_GeeExportPipeline_upload__empty_table__raises_missing_data_error(
+    mock_intermediate_storage_empty_table,
+    example_plan_with_date_and_grid,
+    mock_archive_storage,
+) -> None:
+    pipeline = GeeExportPipeline(
+        archive_storage=mock_archive_storage,
+        intermediate_storage=mock_intermediate_storage_empty_table,
+        plan=example_plan_with_date_and_grid,
+        result_subpath="mock/result/path",
+    )
+
+    with pytest.raises(MissingDataError, match="No rows were exported"):
+        pipeline.upload()
+
     mock_archive_storage.write_to_destination.assert_not_called()

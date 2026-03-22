@@ -37,7 +37,10 @@ class CreaMeasurementsApiDataSource:
         """
         with self._station_stats_lock:
             if self._station_stats_cache is not None:
-                logger.info("Using cached station stats for sources %s", self._source_query_value)
+                logger.info(
+                    "Using cached station stats for sources %s",
+                    self._source_query_value,
+                )
                 return self._station_stats_cache
 
             logger.info("Building station stats for sources %s", self._source_query_value)
@@ -46,7 +49,10 @@ class CreaMeasurementsApiDataSource:
             # is inclusive, not exclusive
 
             month_ranges = [
-                (m.format("YYYY-MM-DD"), m.shift(months=1).shift(days=-1).format("YYYY-MM-DD"))
+                (
+                    m.format("YYYY-MM-DD"),
+                    m.shift(months=1).shift(days=-1).format("YYYY-MM-DD"),
+                )
                 for m in self.temporal_config.months
             ]
 
@@ -142,6 +148,11 @@ class CreaMeasurementsApiDataSource:
             f"&date_to={end_formatted}"
             f"&source={self._source_query_value}"
             "&pollutant=pm25"
+        )
+
+        logger.info(
+            "Fetching station data from URL: %s",
+            measurements_url,
         )
 
         return pl.read_csv(measurements_url).with_columns(
