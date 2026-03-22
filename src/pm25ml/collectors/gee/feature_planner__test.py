@@ -109,6 +109,7 @@ def test__FeaturePlan_is_data_available__no_availability_checker__true() -> None
 @pytest.fixture
 def mock_gee_for_daily_average() -> Iterator[dict[str, MagicMock]]:
     with (
+        patch("pm25ml.collectors.gee.feature_planner.Algorithms") as MockAlgorithms,
         patch("pm25ml.collectors.gee.feature_planner.ImageCollection") as MockImageCollection,
         patch("pm25ml.collectors.gee.feature_planner.Reducer") as MockReducer,
         patch("pm25ml.collectors.gee.feature_planner.Image") as MockImage,
@@ -121,9 +122,11 @@ def mock_gee_for_daily_average() -> Iterator[dict[str, MagicMock]]:
 
         fake_image = MagicMock()
         mock_ic_instance.filterDate.return_value = fake_image
+        mock_ic_instance.size.return_value.gt.return_value = True
         fake_image.reduce.return_value = fake_image
         fake_image.set.return_value = fake_image
         fake_image.filterBounds.return_value = fake_image
+        MockAlgorithms.If.return_value = fake_image
 
         from_images_mock = MagicMock()
         from_images_mock.map.return_value.flatten.return_value = MagicMock()
@@ -143,6 +146,7 @@ def mock_gee_for_daily_average() -> Iterator[dict[str, MagicMock]]:
 
         yield {
             "MockImageCollection": MockImageCollection,
+            "MockAlgorithms": MockAlgorithms,
             "MockReducer": MockReducer,
             "MockImage": MockImage,
             "MockList": MockList,
@@ -209,6 +213,25 @@ def test__GriddedFeatureCollectionPlanner_plan_daily_average__with_bands__correc
     )
 
     assert result.column_mappings == expected_column_mappings
+
+
+def test__GriddedFeatureCollectionPlanner_plan_daily_average__missing_days__drops_none_images(
+    mock_gee_for_daily_average,
+) -> None:
+    grid = MagicMock()
+    planner = GriddedFeatureCollectionPlanner(grid=grid)
+
+    planner.plan_daily_average(
+        collection_name="FAKE/COLLECTION",
+        selected_bands=["AOD"],
+        dates=[get("2023-04-01")],
+    )
+
+    fake_image = mock_gee_for_daily_average["fake_image"]
+    fake_image.removeAll.assert_called_once_with([None])
+    mock_gee_for_daily_average["MockImageCollection"].fromImages.assert_called_once_with(
+        fake_image.removeAll.return_value,
+    )
 
 
 @pytest.fixture

@@ -30,6 +30,7 @@ GEE_IT_ASSET_ROOT = os.environ.get("IT_GEE_ASSET_ROOT")
 GEE_IT_TEST_INSTANCE_ASSETS_ROOT = f"{GEE_IT_ASSET_ROOT}/{TEST_UNIQUE_ID}"
 
 GEE_IMAGE_COLLECTION_ROOT = f"{GEE_IT_TEST_INSTANCE_ASSETS_ROOT}/dummy_data"
+GEE_ORBIT_IMAGE_COLLECTION_ROOT = f"{GEE_IT_TEST_INSTANCE_ASSETS_ROOT}/dummy_orbit_data"
 GEE_GRID_LOCATION = f"{GEE_IT_TEST_INSTANCE_ASSETS_ROOT}/grid"
 
 ASSET_DIR = Path(__file__).parent / "feature_planner__it_assets"
@@ -153,6 +154,42 @@ def upload_dummy_tiffs(cleanup, gcs_bucket) -> dict[str, str]:
             "type": "image",
         },
         {
+            "local_path": Path(ASSET_DIR, "dummy_image", "2023-01-01.tif"),
+            "date": datetime(2023, 1, 1, 7, 44, 9, tzinfo=timezone.utc),
+            "end_date": datetime(2023, 1, 1, 9, 25, 39, tzinfo=timezone.utc),
+            "gcs_path": f"gs://{BUCKET_NAME}/{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-01_a.tif",
+            "bucket_path": f"{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-01_a.tif",
+            "asset_path": f"{GEE_ORBIT_IMAGE_COLLECTION_ROOT}/2023-01-01-a",
+            "type": "image",
+        },
+        {
+            "local_path": Path(ASSET_DIR, "dummy_image", "2023-01-01.tif"),
+            "date": datetime(2023, 1, 1, 9, 25, 39, tzinfo=timezone.utc),
+            "end_date": datetime(2023, 1, 1, 11, 0, tzinfo=timezone.utc),
+            "gcs_path": f"gs://{BUCKET_NAME}/{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-01_b.tif",
+            "bucket_path": f"{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-01_b.tif",
+            "asset_path": f"{GEE_ORBIT_IMAGE_COLLECTION_ROOT}/2023-01-01-b",
+            "type": "image",
+        },
+        {
+            "local_path": Path(ASSET_DIR, "dummy_image", "2023-01-02.tif"),
+            "date": datetime(2023, 1, 2, 6, 6, 43, tzinfo=timezone.utc),
+            "end_date": datetime(2023, 1, 2, 7, 48, 13, tzinfo=timezone.utc),
+            "gcs_path": f"gs://{BUCKET_NAME}/{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-02_a.tif",
+            "bucket_path": f"{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-02_a.tif",
+            "asset_path": f"{GEE_ORBIT_IMAGE_COLLECTION_ROOT}/2023-01-02-a",
+            "type": "image",
+        },
+        {
+            "local_path": Path(ASSET_DIR, "dummy_image", "2023-01-02.tif"),
+            "date": datetime(2023, 1, 2, 7, 48, 13, tzinfo=timezone.utc),
+            "end_date": datetime(2023, 1, 2, 9, 30, tzinfo=timezone.utc),
+            "gcs_path": f"gs://{BUCKET_NAME}/{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-02_b.tif",
+            "bucket_path": f"{TEST_UNIQUE_ID}/dummy_orbit_data/dummy_image_2023-01-02_b.tif",
+            "asset_path": f"{GEE_ORBIT_IMAGE_COLLECTION_ROOT}/2023-01-02-b",
+            "type": "image",
+        },
+        {
             "local_path": Path(ASSET_DIR, "test-grid.zip"),
             "gcs_path": f"gs://{BUCKET_NAME}/{TEST_UNIQUE_ID}/dummy_data/test-grid.zip",
             "bucket_path": f"{TEST_UNIQUE_ID}/dummy_data/test-grid.zip",
@@ -177,6 +214,7 @@ def upload_dummy_tiffs(cleanup, gcs_bucket) -> dict[str, str]:
             ee.data.createAsset({"type": "FOLDER"}, GEE_IT_ASSET_ROOT)
         ee.data.createAsset({"type": "FOLDER"}, GEE_IT_TEST_INSTANCE_ASSETS_ROOT)
         ee.data.createAsset({"type": "IMAGE_COLLECTION"}, GEE_IMAGE_COLLECTION_ROOT)
+        ee.data.createAsset({"type": "IMAGE_COLLECTION"}, GEE_ORBIT_IMAGE_COLLECTION_ROOT)
 
         tasks = []
 
@@ -197,7 +235,10 @@ def upload_dummy_tiffs(cleanup, gcs_bucket) -> dict[str, str]:
                             },
                         ],
                         "startTime": upload["date"].isoformat(),
-                        "endTime": (upload["date"] + timedelta(days=1)).isoformat(),
+                        "endTime": upload.get(
+                            "end_date",
+                            upload["date"] + timedelta(days=1),
+                        ).isoformat(),
                     },
                 )
             else:
@@ -233,6 +274,7 @@ def upload_dummy_tiffs(cleanup, gcs_bucket) -> dict[str, str]:
 
     return {
         "image_collection": GEE_IMAGE_COLLECTION_ROOT,
+        "orbit_image_collection": GEE_ORBIT_IMAGE_COLLECTION_ROOT,
         "grid": GEE_GRID_LOCATION,
     }
 
@@ -304,6 +346,69 @@ def test_plan_daily_average(
                 2,
                 3,
             ],
+        },
+    )
+
+    assert_frame_equal(
+        actual_df,
+        expected_df,
+        check_row_order=False,
+        check_column_order=False,
+        check_exact=False,
+        rtol=0,
+        atol=0.2,
+    )
+
+
+def test_plan_daily_average__orbit_style_collection(
+    feature_planner: GriddedFeatureCollectionPlanner,
+    upload_dummy_tiffs,
+):
+    daily_average_plan = feature_planner.plan_daily_average(
+        collection_name=upload_dummy_tiffs["orbit_image_collection"],
+        selected_bands=["b1", "b2"],
+        dates=[
+            arrow.get("2023-01-01"),
+            arrow.get("2023-01-02"),
+            arrow.get("2023-01-03"),
+        ],
+    )
+
+    actual_df = execute_plan_to_dataframe(daily_average_plan)
+
+    expected_df = pl.DataFrame(
+        {
+            "date": [
+                arrow.get("2023-01-01").date(),
+                arrow.get("2023-01-01").date(),
+                arrow.get("2023-01-01").date(),
+                arrow.get("2023-01-01").date(),
+                arrow.get("2023-01-02").date(),
+                arrow.get("2023-01-02").date(),
+                arrow.get("2023-01-02").date(),
+                arrow.get("2023-01-02").date(),
+            ],
+            "b1_mean": [
+                14.5,
+                14.5,
+                6.5,
+                6.5,
+                15.5,
+                15.5,
+                7.5,
+                7.5,
+            ],
+            "b2_mean": [
+                114.5,
+                114.5,
+                106.5,
+                106.5,
+                115.5,
+                115.5,
+                107.5,
+                107.5,
+            ],
+            "grid_id": [0, 1, 2, 3, 0, 1, 2, 3],
         },
     )
 

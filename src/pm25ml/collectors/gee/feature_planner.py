@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, cast
 
+from ee import Algorithms
 from ee.ee_date import Date
 from ee.ee_list import List
 from ee.image import Image
@@ -98,40 +99,27 @@ class GriddedFeatureCollectionPlanner:
             .filterDate(date_window_start, date_window_end)
         )
 
-        # Annotate each image with a day key, then deduplicate days before
-        # collecting available dates to reduce metadata transfer.
-        collection_by_day = collection.map(
-            lambda im: im.set(
-                "day",
-                Date(im.get("system:time_start")).format(ISO8601_DATE_ONLY),
-            )
-        )
-
-        # Keep only requested dates that actually have source imagery.
-        available_dates = List(collection_by_day.distinct("day").aggregate_array("day")).sort()
-        # ee.List has no intersection() in Python; emulate requested ∩ available while
-        # preserving the original requested-date order.
-        unavailable_dates = gee_dates.removeAll(available_dates)
-        dates_to_process = gee_dates.removeAll(unavailable_dates)
-
-        def daily_mean_image(date_string: ComputedObject) -> Image:
+        def daily_mean_image(date_string: ComputedObject) -> List:
             start = Date(date_string)
             end = start.advance(1, "day")
+            collection_for_day = collection.filterDate(start, end)
 
-            return (
-                collection.filterDate(start, end)
+            return Algorithms.If(
+                collection_for_day.size().gt(0),
+                collection_for_day
                 # Single value per pixel for the day for each band.
                 .reduce(Reducer.mean())
                 # We set the date property to the date to carry through
                 # to the final export.
-                .set("date", start)
+                .set("date", start),
+                None,
             )
 
         # We create an ImageCollection of daily composites for the month, each
         # the pixel-wise mean value for the day.
         images = ImageCollection.fromImages(
             # This does a server side map operation to create an image for each date.
-            dates_to_process.map(daily_mean_image),
+            gee_dates.map(daily_mean_image).removeAll([None]),
         )
 
         # We then average the values for each grid cell for each date.
