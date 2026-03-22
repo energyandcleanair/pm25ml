@@ -34,6 +34,7 @@ pyarrow = "^20.0.0"
 h5netcdf = "^1.6.1"
 python-json-logger = "^3.3.0"
 dependency-injector = "^4.48.1"
+requests = "^2.32.0"
 # multidict is a transitive dependency for a variety of packages but has a problematic version 6.5.0
 multidict = ">=6.0.0,!=6.5.0"
 scikit-learn = "^1.7.1"

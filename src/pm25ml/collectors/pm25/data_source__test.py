@@ -1,17 +1,18 @@
-"""Tests for CreaMeasurementsApiDataSource.
-
-We mock network access by monkeypatching polars read/scan functions.
-"""
+"""Tests for CreaMeasurementsApiDataSource."""
 
 from __future__ import annotations
 
 import arrow
 import polars as pl
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from polars.testing import assert_frame_equal
 
-from pm25ml.collectors.pm25.data_source import CreaMeasurementsApiDataSource
+from pm25ml.collectors.pm25.data_source import (
+    CSV_REQUEST_HEADERS,
+    CSV_REQUEST_TIMEOUT_SECONDS,
+    CreaMeasurementsApiDataSource,
+)
 from pm25ml.setup.date_params import TemporalConfig
 
 
@@ -33,9 +34,9 @@ def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_t
     )
 
     with patch(
-        "pm25ml.collectors.pm25.data_source.pl.scan_csv",
-        return_value=measurements_df.lazy(),
-    ) as mock_scan_csv:
+        "pm25ml.collectors.pm25.data_source.CreaMeasurementsApiDataSource._read_csvs_from_urls",
+        return_value=measurements_df,
+    ) as mock_read_csvs:
         ds = CreaMeasurementsApiDataSource(
             temporal_config=temporal_config_two_months,
             source_ids=("cpcb",),
@@ -45,11 +46,13 @@ def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_t
         second = ds.fetch_station_stats()  # Should use cache
 
         # Caching assertions
-        assert mock_scan_csv.call_count == 1, "scan_csv should be called only once due to caching"
+        assert mock_read_csvs.call_count == 1, (
+            "monthly CSVs should be fetched only once due to caching"
+        )
         assert first is second, "Cached DataFrame instance should be reused"
 
         # Ensure URLs were generated for each month in the temporal config
-        (paths_arg,) = mock_scan_csv.call_args.args
+        (paths_arg,) = mock_read_csvs.call_args.args
         assert isinstance(paths_arg, list)
         assert len(paths_arg) == len(temporal_config_two_months.months)
 
@@ -83,7 +86,7 @@ def test__fetch_stations__parses_coordinates_and_caches(temporal_config_two_mont
     )
 
     with patch(
-        "pm25ml.collectors.pm25.data_source.pl.read_csv",
+        "pm25ml.collectors.pm25.data_source.CreaMeasurementsApiDataSource._read_csv_from_url",
         return_value=stations_df,
     ) as mock_read_csv:
         ds = CreaMeasurementsApiDataSource(
@@ -121,7 +124,7 @@ def test__fetch_station_data__casts_types(temporal_config_two_months):
     )
 
     with patch(
-        "pm25ml.collectors.pm25.data_source.pl.read_csv",
+        "pm25ml.collectors.pm25.data_source.CreaMeasurementsApiDataSource._read_csv_from_url",
         return_value=measurements_df,
     ):
         ds = CreaMeasurementsApiDataSource(
@@ -139,3 +142,31 @@ def test__fetch_station_data__casts_types(temporal_config_two_months):
         assert result.select(pl.col("date").min()).item() == arrow.get("2023-01-01").date()
         assert result.select(pl.col("date").max()).item() == arrow.get("2023-01-02").date()
         assert result.height == 2
+
+
+def test__read_csv_from_url__uses_requests_with_browser_like_headers(temporal_config_two_months):
+    """It should fetch CSV content via requests with headers accepted by the CREA API."""
+
+    csv_bytes = b"date,value,location_id\n2023-01-01,12.5,1\n"
+
+    with patch("pm25ml.collectors.pm25.data_source.requests.get") as mock_get:
+        mock_response = MagicMock()
+        mock_response.content = csv_bytes
+        mock_get.return_value = mock_response
+
+        ds = CreaMeasurementsApiDataSource(
+            temporal_config=temporal_config_two_months,
+            source_ids=("cpcb",),
+        )
+
+        result = ds._read_csv_from_url("https://api.energyandcleanair.org/test.csv")
+
+        mock_get.assert_called_once_with(
+            "https://api.energyandcleanair.org/test.csv",
+            headers=CSV_REQUEST_HEADERS,
+            timeout=CSV_REQUEST_TIMEOUT_SECONDS,
+        )
+        mock_response.raise_for_status.assert_called_once_with()
+
+        assert result.shape == (1, 3)
+        assert result["location_id"].item() == 1

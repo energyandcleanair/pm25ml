@@ -2,14 +2,22 @@
 
 import ast
 import threading
+from io import BytesIO
+from urllib.parse import urlparse
 
 import polars as pl
+import requests
 from arrow import Arrow
 
 from pm25ml.logging import logger
 from pm25ml.setup.date_params import TemporalConfig
 
 BASE_URI = "https://api.energyandcleanair.org"
+CSV_REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; pm25ml/0.1; +https://api.energyandcleanair.org)",
+    "Accept": "text/csv,*/*;q=0.8",
+}
+CSV_REQUEST_TIMEOUT_SECONDS = 60
 
 
 class CreaMeasurementsApiDataSource:
@@ -71,7 +79,8 @@ class CreaMeasurementsApiDataSource:
 
             # We want the q1 per station, and q3 per station, along with the IQR.
             results = (
-                pl.scan_csv(measurements_urls)
+                self._read_csvs_from_urls(measurements_urls)
+                .lazy()
                 .select(
                     "location_id",
                     "value",
@@ -107,7 +116,7 @@ class CreaMeasurementsApiDataSource:
                 "&with_data_only=false"
             )
 
-            station_data = pl.read_csv(url)
+            station_data = self._read_csv_from_url(url)
 
             # Safely parse the 'coordinates' column
             if "coordinates" in station_data.columns:
@@ -155,10 +164,31 @@ class CreaMeasurementsApiDataSource:
             measurements_url,
         )
 
-        return pl.read_csv(measurements_url).with_columns(
+        return self._read_csv_from_url(measurements_url).with_columns(
             date=pl.col("date").cast(pl.Date),
             value=pl.col("value").cast(pl.Float32),
         )
+
+    def _read_csvs_from_urls(self, urls: list[str]) -> pl.DataFrame:
+        frames = [self._read_csv_from_url(url) for url in urls]
+        if not frames:
+            return pl.DataFrame()
+        return pl.concat(frames, how="vertical_relaxed")
+
+    @staticmethod
+    def _read_csv_from_url(url: str) -> pl.DataFrame:
+        parsed_url = urlparse(url)
+        if parsed_url.scheme != "https" or parsed_url.netloc != "api.energyandcleanair.org":
+            msg = f"Unsupported CREA API URL: {url}"
+            raise ValueError(msg)
+
+        response = requests.get(
+            url,
+            headers=CSV_REQUEST_HEADERS,
+            timeout=CSV_REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return pl.read_csv(BytesIO(response.content))
 
     @property
     def _source_query_value(self) -> str:
