@@ -14,7 +14,10 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-from pm25ml.collectors.gee.feature_planner import FeaturePlan, GriddedFeatureCollectionPlanner
+from pm25ml.collectors.gee.feature_planner import (
+    FeaturePlan,
+    GriddedFeatureCollectionPlanner,
+)
 
 pytestmark = pytest.mark.integration
 

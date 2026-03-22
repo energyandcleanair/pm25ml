@@ -22,7 +22,9 @@ def temporal_config_two_months() -> TemporalConfig:
     return TemporalConfig(start_date=arrow.get("2023-01-01"), end_date=arrow.get("2023-02-28"))
 
 
-def test__fetch_station_stats__aggregates_quantiles_and_caches(temporal_config_two_months):
+def test__fetch_station_stats__aggregates_quantiles_and_caches(
+    temporal_config_two_months,
+):
     """It should compute per-station q1, q3 and IQR only once (cached on 2nd call)."""
 
     # Data chosen so quartiles fall exactly on existing values (avoids interpolation ambiguity)
@@ -144,7 +146,9 @@ def test__fetch_station_data__casts_types(temporal_config_two_months):
         assert result.height == 2
 
 
-def test__read_csv_from_url__uses_requests_with_browser_like_headers(temporal_config_two_months):
+def test__read_csv_from_url__uses_requests_with_browser_like_headers(
+    temporal_config_two_months,
+):
     """It should fetch CSV content via requests with headers accepted by the CREA API."""
 
     csv_bytes = b"date,value,location_id\n2023-01-01,12.5,1\n"

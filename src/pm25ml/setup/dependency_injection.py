@@ -31,12 +31,18 @@ from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.combiners.recombiner.recombiner import Recombiner
 from pm25ml.feature_generation.generate import FeatureGenerator
-from pm25ml.imputation.from_model.full_predict_controller import FinalPredictionController
+from pm25ml.imputation.from_model.full_predict_controller import (
+    FinalPredictionController,
+)
 from pm25ml.imputation.from_model.imputation_controller import (
     ImputationController,
 )
-from pm25ml.imputation.spatial.daily_spatial_interpolator import DailySpatialInterpolator
-from pm25ml.imputation.spatial.spatial_imputation_manager import SpatialImputationManager
+from pm25ml.imputation.spatial.daily_spatial_interpolator import (
+    DailySpatialInterpolator,
+)
+from pm25ml.imputation.spatial.spatial_imputation_manager import (
+    SpatialImputationManager,
+)
 from pm25ml.logging import logger
 from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.sample.full_model_sampler import FullModelSampler
@@ -122,7 +128,11 @@ def _load_in_memory_grid(profile_id: str) -> Grid:
     grid_50km_mapping_csv_path = asset_dir / "grid_intersect_with_50km.csv"
     grid_region_parquet_path = asset_dir / "grid_region.parquet"
 
-    logger.debug("Loading in-memory grid for %s from local zip file: %s", profile_id, grid_zip_path)
+    logger.debug(
+        "Loading in-memory grid for %s from local zip file: %s",
+        profile_id,
+        grid_zip_path,
+    )
     return load_grid_from_files(
         path_to_shapefile_zip=grid_zip_path,
         path_to_50km_csv=grid_50km_mapping_csv_path,
@@ -363,7 +373,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         temporal_config=temporal_config,
         imputation_steps=config.imputation_steps,
         input_data_artifact=data_artifacts_container.generated_features_stage.provided,
-        output_data_artifact=data_artifacts_container.ml_imputed_super_stage.provided,
+        output_data_artifact=data_artifacts_container.ml_imputer_sampled_super_stage.provided,
     )
 
     extra_sampler = providers.Selector(
