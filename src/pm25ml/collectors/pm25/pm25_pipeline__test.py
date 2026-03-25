@@ -120,7 +120,7 @@ def measurement_df() -> pl.DataFrame:
         {
             "date": [
                 arrow_get(2023, 1, 1).date(),
-                arrow_get(2023, 1, 1).date(),
+                arrow_get(2023, 1, 2).date(),
                 arrow_get(2023, 1, 1).date(),
                 arrow_get(2023, 1, 2).date(),
                 arrow_get(2023, 1, 3).date(),
@@ -225,7 +225,7 @@ def test__pm25_pipeline__upload_with_filters__writes_full_scaffold_and_applies_f
     assert set(df.columns) == {"grid_id", "date", "pm25"}
 
     g1d1 = df.filter(pl.col("grid_id") == 1, pl.col("date") == "2023-01-01").select("pm25").item()
-    assert g1d1 == 15.0
+    assert g1d1 == 10.0
 
     g2d2 = df.filter(pl.col("grid_id") == 2, pl.col("date") == "2023-01-02").select("pm25").item()
     assert g2d2 == 8.0
