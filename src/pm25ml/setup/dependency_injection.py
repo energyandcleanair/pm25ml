@@ -357,6 +357,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         temporal_config=temporal_config,
         output_data_artifact=data_artifacts_container.spatially_imputed_stage.provided,
         max_workers=8,
+        n_grid_cells=config.profile.grid_cell_count,
     )
 
     feature_generator = providers.Singleton(
@@ -432,6 +433,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         temporal_config=temporal_config,
         output_data_artifact=data_artifacts_container.ml_imputed_super_stage.provided,
         max_workers=4,
+        n_grid_cells=config.profile.grid_cell_count,
         force_recombine=True,
     )
 

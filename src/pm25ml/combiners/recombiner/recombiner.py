@@ -1,5 +1,6 @@
 """Handles recombination of datasets into a single combined dataset."""
 
+import calendar
 from collections import deque
 from collections.abc import Collection
 from concurrent.futures import ThreadPoolExecutor
@@ -19,30 +20,40 @@ class Recombiner:
 
     Attributes:
         combined_storage (CombinedStorage): The storage where the combined results will be stored.
-        new_stage_name (str): The name of the new stage for the combined dataset.
+        output_data_artifact (DataArtifactRef): The data artifact reference for the output combined
+          dataset.
         months (Collection[Arrow]): The months to recombine.
+        max_workers (int): The maximum number of worker threads to use for parallel processing.
+        n_grid_cells (int): The expected number of grid cells in the combined dataset.
+        force_recombine (bool): Whether to force recombination even if not needed.
 
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         combined_storage: CombinedStorage,
         temporal_config: TemporalConfig,
         output_data_artifact: DataArtifactRef,
         max_workers: int,
+        n_grid_cells: int,
         force_recombine: bool = False,
     ) -> None:
         """
         Initialize the Recombiner with a storage for combined datasets.
 
         :param combined_storage: The storage where the combined results will be stored.
-        :param new_stage_name: The name of the new stage for the combined dataset.
+        :param temporal_config: The temporal configuration containing the months to recombine.
+        :param output_data_artifact: The data artifact reference for the output combined dataset.
+        :param max_workers: The maximum number of worker threads to use for parallel processing.
+        :param n_grid_cells: The expected number of grid cells in the combined dataset.
+        :param force_recombine: Whether to force recombination even if not needed.
         """
         self.combined_storage = combined_storage
         self.output_data_artifact = output_data_artifact
         self.months = temporal_config.months
         self.max_workers = max_workers
+        self.n_grid_cells = n_grid_cells
         self.force_recombine = force_recombine
 
     def recombine(
@@ -201,6 +212,7 @@ class Recombiner:
 
     def _validate_combined(self, month: Arrow, stages: Collection[DataArtifactRef]) -> None:
         month_short = month.format("YYYY-MM")
+        expected_rows = self._get_expected_rows_for_month(month)
 
         # Collect expected columns from all stages
         expected_columns = set()
@@ -209,11 +221,6 @@ class Recombiner:
                 stage.for_month(month_short),
             )
             expected_columns.update(metadata.schema.names)
-
-        first_stage = next(iter(stages))
-        expected_rows = self.combined_storage.read_dataframe_metadata(
-            first_stage.for_month(month_short),
-        ).num_rows
 
         # Read metadata of the combined dataset
         combined_metadata = self.combined_storage.read_dataframe_metadata(
@@ -242,3 +249,7 @@ class Recombiner:
             raise ValueError(
                 msg,
             )
+
+    def _get_expected_rows_for_month(self, month: Arrow) -> int:
+        month_days = calendar.monthrange(month.year, month.month)[1]
+        return self.n_grid_cells * month_days
