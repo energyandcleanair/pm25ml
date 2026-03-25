@@ -243,3 +243,44 @@ def test__pm25_pipeline__upload_with_filters__writes_full_scaffold_and_applies_f
     assert fake_ds.last_fetch_end is not None
     assert fake_ds.last_fetch_start.format("YYYY-MM-DD") == "2022-12-27"
     assert fake_ds.last_fetch_end.format("YYYY-MM-DD") == "2023-01-31"
+
+
+def test__collect_required_data__duplicate_location_id_date__raises_assertion_error(
+    constructor: Pm25MeasurementsPipelineConstructor,
+    result_subpath: str,
+    start_month: Arrow,
+    grid: Grid,
+    stations_df: pl.DataFrame,
+    station_stats_df: pl.DataFrame,
+    archive_storage: IngestArchiveStorage,
+    filters: list[Pm25MeasurementFilterMarker],
+):
+    """It should raise AssertionError if there are duplicate (location_id, date) combinations."""
+    # Create measurement data with duplicates for the same (location_id, date)
+    duplicate_measurement_df = pl.DataFrame(
+        {
+            "date": [
+                arrow_get(2023, 1, 1).date(),
+                arrow_get(2023, 1, 1).date(),
+                arrow_get(2023, 1, 1).date(),
+            ],
+            "location_id": [10, 10, 11],  # location_id 10 appears twice on same date
+            "value": [10.0, 20.0, 5.0],
+        },
+    )
+
+    fake_ds_with_duplicates = _FakeDataSource(
+        measurement_df=duplicate_measurement_df,
+        stations_df=stations_df,
+        station_stats_df=station_stats_df,
+    )
+
+    pipeline = Pm25MeasurementsPipelineConstructor(
+        in_memory_grid=grid,
+        crea_ds=fake_ds_with_duplicates,  # type: ignore[arg-type]
+        archive_storage=archive_storage,
+        filters=filters,
+    ).construct(result_subpath=result_subpath, month=start_month)
+
+    with pytest.raises(AssertionError, match="Found 1 duplicate.*location_id.*date"):
+        pipeline._collect_required_data()

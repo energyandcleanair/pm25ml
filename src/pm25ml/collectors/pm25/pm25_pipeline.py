@@ -8,7 +8,11 @@ from arrow import Arrow
 from sklearn.neighbors import BallTree
 
 from pm25ml.collectors.archive_storage import IngestArchiveStorage
-from pm25ml.collectors.export_pipeline import ExportPipeline, PipelineConfig, ValueColumnType
+from pm25ml.collectors.export_pipeline import (
+    ExportPipeline,
+    PipelineConfig,
+    ValueColumnType,
+)
 from pm25ml.collectors.grid import Grid
 from pm25ml.collectors.pm25.data_source import CreaMeasurementsApiDataSource
 from pm25ml.logging import logger
@@ -88,6 +92,20 @@ class Pm25MeasurementsPipeline(ExportPipeline):
             "location_id",
             "value",
         )
+
+        # Validate that there is only one value per location_id per date
+        duplicates = (
+            measurement_df.group_by("location_id", "date")
+            .agg(count=pl.len())
+            .filter(pl.col("count") > 1)
+        )
+        if duplicates.height > 0:
+            msg = (
+                f"Found {duplicates.height} duplicate (location_id, date) combinations in "
+                f"fetched station data. Expected at most one value per station per date."
+            )
+            raise AssertionError(msg)
+
         station_to_grid_ids_df = self._with_closest_grid_points(
             self.crea_ds.fetch_stations(),
         ).select(
@@ -177,7 +195,10 @@ class Pm25MeasurementsPipeline(ExportPipeline):
 
         stn_latlon_rad = np.deg2rad(
             np.column_stack(
-                [station_data["latitude"].to_numpy(), station_data["longitude"].to_numpy()],
+                [
+                    station_data["latitude"].to_numpy(),
+                    station_data["longitude"].to_numpy(),
+                ],
             ),
         )
         _, nn_idx = tree.query(stn_latlon_rad, k=1)  # shape (n_stn, 1)

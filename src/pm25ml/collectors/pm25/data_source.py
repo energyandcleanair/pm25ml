@@ -2,6 +2,7 @@
 
 import ast
 import threading
+from collections.abc import Callable
 from io import BytesIO
 from urllib.parse import urlparse
 
@@ -29,12 +30,12 @@ class CreaMeasurementsApiDataSource:
         source_ids: tuple[str, ...],
     ) -> None:
         """Initialize the data source."""
-        self._station_stats_cache: pl.DataFrame | None = None
-        self._stations_cache: pl.DataFrame | None = None
-
         self.temporal_config = temporal_config
         self.source_ids = source_ids
+
+        self._station_stats_cache: pl.DataFrame | None = None
         self._station_stats_lock = threading.Lock()
+        self._stations_cache: pl.DataFrame | None = None
         self._stations_lock = threading.Lock()
 
     def fetch_station_stats(self) -> pl.DataFrame:
@@ -43,16 +44,8 @@ class CreaMeasurementsApiDataSource:
 
         The results will be cached in memory for the instance for subsequent calls.
         """
-        with self._station_stats_lock:
-            if self._station_stats_cache is not None:
-                logger.info(
-                    "Using cached station stats for sources %s",
-                    self._source_query_value,
-                )
-                return self._station_stats_cache
 
-            logger.info("Building station stats for sources %s", self._source_query_value)
-
+        def fetch_and_process() -> pl.DataFrame:
             # Generate a URL per month between min_date and max_date. The date_to value
             # is inclusive, not exclusive
 
@@ -65,20 +58,11 @@ class CreaMeasurementsApiDataSource:
             ]
 
             measurements_urls = [
-                (
-                    f"{BASE_URI}/v1/measurements"
-                    "?format=csv"
-                    "&process_id=station_day_mad"
-                    f"&date_from={start}"
-                    f"&date_to={end}"
-                    f"&source={self._source_query_value}"
-                    "&pollutant=pm25"
-                )
-                for start, end in month_ranges
+                self._build_measurements_url(start, end) for start, end in month_ranges
             ]
 
             # We want the q1 per station, and q3 per station, along with the IQR.
-            results = (
+            return (
                 self._read_csvs_from_urls(measurements_urls)
                 .lazy()
                 .select(
@@ -93,10 +77,15 @@ class CreaMeasurementsApiDataSource:
                     ],
                 )
                 .with_columns((pl.col("station_q3") - pl.col("station_q1")).alias("station_iqr"))
+                .collect()
             )
 
-            self._station_stats_cache = results.collect()
-            return self._station_stats_cache
+        return self._get_cached_data(
+            cache_attr="_station_stats_cache",
+            lock=self._station_stats_lock,
+            fetch_fn=fetch_and_process,
+            cache_name="station stats",
+        )
 
     def fetch_stations(self) -> pl.DataFrame:
         """
@@ -104,13 +93,8 @@ class CreaMeasurementsApiDataSource:
 
         The results will be cached in memory for the instance for subsequent calls.
         """
-        with self._stations_lock:
-            if self._stations_cache is not None:
-                logger.info("Using cached stations for sources %s", self._source_query_value)
-                return self._stations_cache
 
-            logger.info("Fetching stations for sources %s", self._source_query_value)
-
+        def fetch_and_process() -> pl.DataFrame:
             url = (
                 f"{BASE_URI}/stations?format=csv&source={self._source_query_value}"
                 "&with_data_only=false"
@@ -135,12 +119,18 @@ class CreaMeasurementsApiDataSource:
                     latitude=pl.col("coordinates").struct.field("latitude"),
                 )
 
-            self._stations_cache = station_data.select(
+            return station_data.select(
                 "id",
                 "longitude",
                 "latitude",
             )
-            return self._stations_cache
+
+        return self._get_cached_data(
+            cache_attr="_stations_cache",
+            lock=self._stations_lock,
+            fetch_fn=fetch_and_process,
+            cache_name="stations",
+        )
 
     def fetch_station_data(self, start_date: Arrow, end_date: Arrow) -> pl.DataFrame:
         """Fetch station data for a given date range."""
@@ -149,15 +139,7 @@ class CreaMeasurementsApiDataSource:
         start_formatted = start_date.format("YYYY-MM-DD")
         end_formatted = end_date.format("YYYY-MM-DD")
 
-        measurements_url = (
-            f"{BASE_URI}/v1/measurements"
-            "?format=csv"
-            "&process_id=station_day_mad"
-            f"&date_from={start_formatted}"
-            f"&date_to={end_formatted}"
-            f"&source={self._source_query_value}"
-            "&pollutant=pm25"
-        )
+        measurements_url = self._build_measurements_url(start_formatted, end_formatted)
 
         logger.info(
             "Fetching station data from URL: %s",
@@ -167,6 +149,28 @@ class CreaMeasurementsApiDataSource:
         return self._read_csv_from_url(measurements_url).with_columns(
             date=pl.col("date").cast(pl.Date),
             value=pl.col("value").cast(pl.Float32),
+        )
+
+    def _build_measurements_url(self, date_from: str, date_to: str) -> str:
+        """
+        Build a CREA API URL for measurements data.
+
+        Args:
+            date_from: Start date in YYYY-MM-DD format
+            date_to: End date in YYYY-MM-DD format
+
+        Returns:
+            Full URL for measurements API endpoint
+
+        """
+        return (
+            f"{BASE_URI}/v1/measurements"
+            "?format=csv"
+            "&process_id=station_day_mad"
+            f"&date_from={date_from}"
+            f"&date_to={date_to}"
+            f"&source={self._source_query_value}"
+            "&pollutant=pm25"
         )
 
     def _read_csvs_from_urls(self, urls: list[str]) -> pl.DataFrame:
@@ -193,3 +197,39 @@ class CreaMeasurementsApiDataSource:
     @property
     def _source_query_value(self) -> str:
         return ",".join(self.source_ids)
+
+    def _get_cached_data(
+        self,
+        cache_attr: str,
+        lock: threading.Lock,
+        fetch_fn: Callable[[], pl.DataFrame],
+        cache_name: str,
+    ) -> pl.DataFrame:
+        """
+        Fetch data with caching and thread safety.
+
+        Args:
+            cache_attr: Name of the cache attribute (e.g., "_station_stats_cache")
+            lock: Threading lock to use for synchronization
+            fetch_fn: Callable that performs data fetching and transformation
+            cache_name: Human-readable name for logging (e.g., "station stats")
+
+        Returns:
+            Cached or freshly fetched DataFrame
+
+        """
+        with lock:
+            cached_data = getattr(self, cache_attr)
+            if cached_data is not None:
+                logger.info(
+                    "Using cached %s for sources %s",
+                    cache_name,
+                    self._source_query_value,
+                )
+                return cached_data
+
+            logger.info("Fetching %s for sources %s", cache_name, self._source_query_value)
+
+            data = fetch_fn()
+            setattr(self, cache_attr, data)
+            return data
