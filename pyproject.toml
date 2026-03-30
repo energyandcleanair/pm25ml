@@ -13,6 +13,7 @@ xarray = "^2024.7.0"
 netcdf4 = "^1.7.3"
 crea-graphics = {git = "git@github.com:energyandcleanair/crea_graphics_python.git"}
 rioxarray = "^0.20.0"
+google-cloud-storage = "^3.10.1"
 
 
 [build-system]
