@@ -9,7 +9,7 @@ This tool:
  website
 3. Uploads them to a new directory in the bucket
 
-> ![IMPORTANT]
+> [!IMPORTANT]
 >
 > This will not replace the active index and colour map files. To do this, you
 > must copy the latest files over the existing ones.
