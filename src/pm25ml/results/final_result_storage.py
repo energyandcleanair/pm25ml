@@ -12,19 +12,20 @@ class FinalResultStorage:
         self,
         filesystem: AbstractFileSystem,
         destination_bucket: str,
+        output_path: str,
     ) -> None:
         """Initialize the FinalResultStorage."""
         self.filesystem = filesystem
         self.destination_bucket = destination_bucket
+        self.output_path = output_path
 
-    def write(self, data: BinaryIO, path: str, file_name: str) -> None:
+    def write(self, data: BinaryIO, file_name: str) -> None:
         """
         Write the data to the destination bucket.
 
         :param data: The data to write.
-        :param path: The dir path under which to store the data.
         """
-        dir_path = f"{self.destination_bucket}/{path}"
+        dir_path = f"{self.destination_bucket}/{self.output_path}"
         self.filesystem.makedirs(dir_path, exist_ok=True)
         file_path = f"{dir_path}/{file_name}"
         with self.filesystem.open(file_path, "wb") as file:

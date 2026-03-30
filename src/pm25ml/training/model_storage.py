@@ -1,5 +1,7 @@
 """Storage for ML models."""
 
+from __future__ import annotations
+
 import json
 import tempfile
 from dataclasses import dataclass
@@ -10,17 +12,18 @@ from typing import TYPE_CHECKING, Literal, cast
 import daal4py
 import lightgbm
 import pandas as pd
-from arrow import Arrow
-from daal4py.mb import GBTDAALModel
-from fsspec import AbstractFileSystem
 from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 
 from pm25ml.logging import logger
-from pm25ml.training.types import ModelName, Pm25mlCompatibleModel
 
 if TYPE_CHECKING:
     from io import BufferedReader, BufferedWriter
+
+    from daal4py.mb import GBTDAALModel
+    from fsspec import AbstractFileSystem
+
+    from pm25ml.training.types import ModelName, Pm25mlCompatibleModel
 
 
 @dataclass
@@ -28,7 +31,7 @@ class ModelStats:
     """Statistics for a model run."""
 
     cv_results: pd.DataFrame
-    test_metrics: dict
+    test_metrics: dict | None
 
 
 @dataclass
@@ -55,7 +58,14 @@ class LoadedValidatedModel(ModelStats):
     model: GBTDAALModel
 
 
-type ModelRunRef = Arrow
+@dataclass
+class LoadedValidationMetadata(ModelStats):
+    """Validation metadata loaded from storage without model bytes."""
+
+    model_run_ref: str
+
+
+type ModelRunRef = str
 
 type ModelType = Literal["XGBRegressor", "LGBMRegressor"]
 
@@ -87,6 +97,17 @@ class ModelStorage:
         self.bucket_name = bucket_name
         self.profile_id = profile_id
 
+    def _normalise_model_run_ref(self, model_run_ref: ModelRunRef) -> str:
+        """Validate and normalize run references used as a storage path segment."""
+        cleaned_ref = model_run_ref.strip()
+        if not cleaned_ref:
+            msg = "model_run_ref cannot be empty"
+            raise ValueError(msg)
+        if "/" in cleaned_ref:
+            msg = "model_run_ref cannot contain '/'"
+            raise ValueError(msg)
+        return cleaned_ref
+
     def save_model(
         self,
         model_name: ModelName,
@@ -98,14 +119,14 @@ class ModelStorage:
 
         Args:
             model_name (str): The name of the model to save.
-            model_run_ref (Arrow): A reference for the model run.
+            model_run_ref (str): A reference for the model run.
             model (ValidatedModel): The validated model to save.
 
         """
         base_path = Path(
             self._models_root(),
             model_name,
-            model_run_ref.format("YYYY-MM-DD+HH-mm-ss"),
+            self._normalise_model_run_ref(model_run_ref),
         )
 
         self.filesystem.mkdir(str(base_path), create_parents=True, exist_ok=True)
@@ -117,13 +138,14 @@ class ModelStorage:
         ):
             gz_f.write(self._serialised_to_bytes(model.model))
 
-        cv_results_path = str(base_path / "cv_results.parquet")
+        cv_results_path = str(base_path / "cv_results.csv")
         with self.filesystem.open(cv_results_path, "wb") as f:
             model.cv_results.to_csv(f, index=False)
 
         test_metrics_path = str(base_path / "test_metrics.json")
-        with self.filesystem.open(test_metrics_path, "w") as f:
-            json.dump(model.test_metrics, f)
+        if model.test_metrics is not None:
+            with self.filesystem.open(test_metrics_path, "w") as f:
+                json.dump(model.test_metrics, f)
 
     def _serialised_to_bytes(
         self,
@@ -163,36 +185,19 @@ class ModelStorage:
         """
         return self._load_from_str_ref(
             model_name,
-            model_run_ref.format("YYYY-MM-DD+HH-mm-ss"),
+            self._normalise_model_run_ref(model_run_ref),
         )
 
-    def load_latest_model(self, model_name: ModelName) -> LoadedValidatedModel:
-        """
-        Load the latest validated model for a given model name.
-
-        Args:
-            model_name (str): The name of the model to load.
-
-        Returns:
-            LoadedValidatedModel: The loaded validated model.
-
-        """
-        base_path = Path(self._models_root(), model_name)
-
-        # Find the latest model run reference
-        model_run_refs: list[str] = [
-            Path(path).name
-            for path in cast("list[str]", self.filesystem.glob(str(base_path / "*")))
-            if self.filesystem.isdir(path)
-        ]
-        if not model_run_refs:
-            msg = f"No model runs found for model: {model_name}"
-            raise FileNotFoundError(msg)
-
-        latest_run_ref: str = max(model_run_refs)
-        logger.debug(f"Latest model run reference for {model_name}: {latest_run_ref}")
-        # Delegate to the existing load_model method
-        return self._load_from_str_ref(model_name, latest_run_ref)
+    def load_validation_metadata(
+        self,
+        model_name: ModelName,
+        model_run_ref: ModelRunRef,
+    ) -> LoadedValidationMetadata:
+        """Load only validation metadata for a model run."""
+        return self._load_validation_metadata_from_str_ref(
+            model_name,
+            self._normalise_model_run_ref(model_run_ref),
+        )
 
     def _load_from_str_ref(
         self,
@@ -215,6 +220,26 @@ class ModelStorage:
 
         return LoadedValidatedModel(
             model=predictor,
+            cv_results=cv_results,
+            test_metrics=test_metrics,
+        )
+
+    def _load_validation_metadata_from_str_ref(
+        self,
+        model_name: ModelName,
+        model_run_ref: str,
+    ) -> LoadedValidationMetadata:
+        base_path = Path(
+            self._models_root(),
+            model_name,
+            model_run_ref,
+        )
+
+        cv_results = self._load_cv_metrics(base_path)
+        test_metrics = self._load_test_metrics(base_path)
+
+        return LoadedValidationMetadata(
+            model_run_ref=model_run_ref,
             cv_results=cv_results,
             test_metrics=test_metrics,
         )
@@ -303,13 +328,15 @@ class ModelStorage:
         return Path(self.bucket_name, f"country={self.profile_id}")
 
     def _load_cv_metrics(self, base_path: Path) -> pd.DataFrame:
-        cv_results_path = str(base_path / "cv_results.parquet")
+        cv_results_path = str(base_path / "cv_results.csv")
         logger.debug(f"Loading CV results from: {cv_results_path}")
         with self.filesystem.open(cv_results_path, "rb") as f:
             return pd.read_csv(f)
 
-    def _load_test_metrics(self, base_path: Path) -> dict:
+    def _load_test_metrics(self, base_path: Path) -> dict | None:
         test_metrics_path = str(base_path / "test_metrics.json")
         logger.debug(f"Loading test metrics from: {test_metrics_path}")
+        if not self.filesystem.exists(test_metrics_path):
+            return None
         with self.filesystem.open(test_metrics_path, "r") as f:
             return json.load(f)

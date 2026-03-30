@@ -1,7 +1,6 @@
 """Writer for putting final results to a NetCDF file."""
 
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +9,10 @@ import pyproj
 from xarray import DataArray, Dataset
 
 from pm25ml.collectors.geo_time_grid_dataset import GeoTimeGridDataset
-from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.results.final_result_writer import FinalResultWriter
+
+FILE_SUFFIX = "_pm25-full"
 
 
 class NetCdfResultWriter(FinalResultWriter):
@@ -26,28 +26,25 @@ class NetCdfResultWriter(FinalResultWriter):
 
     def __init__(
         self,
-        output_ref: DataArtifactRef,
-        file_prefix: str,
+        model_run_ref: str,
         output_storage: FinalResultStorage,
     ) -> None:
         """
         Initialize the NetCdfResultWriter.
 
         Args:
-            output_ref (DataArtifactRef): The reference to the output data artifact.
-            file_prefix (str): The prefix for the output file name.
+            model_run_ref (str): Run reference used for output filename construction.
             output_storage (FinalResultStorage): Storage to upload the final file to.
 
         """
-        self.output_ref = output_ref
-        self.file_prefix = file_prefix
+        self.model_run_ref = model_run_ref
         self.output_storage = output_storage
 
     def write(self, result: GeoTimeGridDataset) -> None:
         """
         Write the given result to NetCDF and upload to final storage.
 
-        The destination key will be ``{output_ref.initial_path}/{file_prefix}.nc``.
+        The destination key will be ``{run-root}/{run_ref<suffix>.nc}``.
         """
         ds: Dataset = result.copy()
 
@@ -80,8 +77,7 @@ class NetCdfResultWriter(FinalResultWriter):
         # Direct streaming to remote filesystems isn't supported by h5netcdf/netcdf4 engines.
         # Using a local temp file ensures compatibility and low memory overhead.
         with tempfile.TemporaryDirectory(prefix="pm25ml_netcdf_") as tmpdir:
-            timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-            filename = f"{self.file_prefix}_{timestamp}.nc"
+            filename = f"{self.model_run_ref}{FILE_SUFFIX}.nc"
             tmp_path = Path(tmpdir) / filename
 
             compression_args: dict[str, Any] = {
@@ -105,7 +101,6 @@ class NetCdfResultWriter(FinalResultWriter):
             with tmp_path.open("rb") as fh:
                 self.output_storage.write(
                     fh,
-                    path=str(self.output_ref.initial_path),
                     file_name=filename,
                 )
 

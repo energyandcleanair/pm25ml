@@ -1,6 +1,5 @@
 import warnings
-from arrow import Arrow
-import arrow
+from typing import cast
 import numpy as np
 import pytest
 import pandas as pd
@@ -9,6 +8,7 @@ from morefs.memory import MemFS
 from xgboost import XGBRegressor
 from lightgbm import Booster, LGBMRegressor
 from pm25ml.training.model_storage import ModelStorage, ValidatedModel
+from pm25ml.training.types import ModelName
 
 
 TEST_COUNTRY = "india"
@@ -48,8 +48,8 @@ def trained_lgbm_model(sample_data):
     return model
 
 
-EXAMPLE_DATE = arrow.get("2023-10-01+12-00-00", "YYYY-MM-DD+HH-mm-ss")
-EXAMPLE_DATE_LATER = arrow.get("2023-10-02+12-00-00", "YYYY-MM-DD+HH-mm-ss")
+EXAMPLE_DATE = "2023-10-01+12-00-00"
+EXAMPLE_DATE_LATER = "2023-10-02+12-00-00"
 
 
 def test__save_model__xgb_model_with_validated_model__files_exist(model_storage, trained_xgb_model):
@@ -59,15 +59,19 @@ def test__save_model__xgb_model_with_validated_model__files_exist(model_storage,
         test_metrics={"rmse": 0.15},
     )
 
-    model_storage.save_model("xgb_model", EXAMPLE_DATE, validated_model)
+    model_storage.save_model(
+        cast("ModelName", "xgb_model"),
+        EXAMPLE_DATE,
+        validated_model,
+    )
 
-    expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
+    expected_date_path = EXAMPLE_DATE
 
     assert model_storage.filesystem.exists(
         f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
     )
     assert model_storage.filesystem.exists(
-        f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/cv_results.parquet"
+        f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/cv_results.csv"
     )
     assert model_storage.filesystem.exists(
         f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/test_metrics.json"
@@ -85,13 +89,13 @@ def test__save_model__lgbm_model_with_validated_model__files_exist(
 
     model_storage.save_model("lgbm_model", EXAMPLE_DATE, validated_model)
 
-    expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
+    expected_date_path = EXAMPLE_DATE
 
     assert model_storage.filesystem.exists(
         f"test_bucket/country={TEST_COUNTRY}/lgbm_model/{expected_date_path}/model+LGBMRegressor.gz"
     )
     assert model_storage.filesystem.exists(
-        f"test_bucket/country={TEST_COUNTRY}/lgbm_model/{expected_date_path}/cv_results.parquet"
+        f"test_bucket/country={TEST_COUNTRY}/lgbm_model/{expected_date_path}/cv_results.csv"
     )
     assert model_storage.filesystem.exists(
         f"test_bucket/country={TEST_COUNTRY}/lgbm_model/{expected_date_path}/test_metrics.json"
@@ -113,10 +117,10 @@ def test__save_model__statistics_model_with_validated_model__files_and_content_c
 
     model_storage.save_model("stats_model", EXAMPLE_DATE, validated_model)
 
-    expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
+    expected_date_path = EXAMPLE_DATE
 
     with model_storage.filesystem.open(
-        f"test_bucket/country={TEST_COUNTRY}/stats_model/{expected_date_path}/cv_results.parquet"
+        f"test_bucket/country={TEST_COUNTRY}/stats_model/{expected_date_path}/cv_results.csv"
     ) as f:
         cv_results = pd.read_csv(f)
         assert "metric" in cv_results.columns
@@ -137,7 +141,11 @@ def test__load_model__xgb_model_saved_and_loaded__model_and_predictions_match(
         test_metrics={"rmse": 0.15},
     )
 
-    model_storage.save_model("xgb_model", EXAMPLE_DATE, validated_model)
+    model_storage.save_model(
+        cast("ModelName", "xgb_model"),
+        EXAMPLE_DATE,
+        validated_model,
+    )
 
     loaded_model_wrapper = model_storage.load_model("xgb_model", EXAMPLE_DATE)
 
@@ -168,7 +176,7 @@ def test__load_model__lgbm_model_saved_and_loaded__model_and_predictions_match(
         )
 
 
-def test__load_latest_model__xgb_model_with_multiple_runs__latest_model_loaded(
+def test__load_model__xgb_model_with_multiple_runs__specific_model_run_is_loaded(
     model_storage, trained_xgb_model
 ):
     validated_model_1 = ValidatedModel(
@@ -186,9 +194,9 @@ def test__load_latest_model__xgb_model_with_multiple_runs__latest_model_loaded(
     model_storage.save_model("xgb_model", EXAMPLE_DATE, validated_model_1)
     model_storage.save_model("xgb_model", EXAMPLE_DATE_LATER, validated_model_2)
 
-    loaded_model_wrapper = model_storage.load_latest_model("xgb_model")
+    loaded_model_wrapper = model_storage.load_model("xgb_model", EXAMPLE_DATE)
 
-    assert loaded_model_wrapper.test_metrics["rmse"] == 0.10
+    assert loaded_model_wrapper.test_metrics["rmse"] == 0.15
 
 
 def test__save_model__profile_storage__writes_under_country_partition(
@@ -201,10 +209,61 @@ def test__save_model__profile_storage__writes_under_country_partition(
         test_metrics={"rmse": 0.15},
     )
 
-    model_storage.save_model("xgb_model", EXAMPLE_DATE, validated_model)
+    model_storage.save_model(
+        cast("ModelName", "xgb_model"),
+        EXAMPLE_DATE,
+        validated_model,
+    )
 
-    expected_date_path = EXAMPLE_DATE.format("YYYY-MM-DD+HH-mm-ss")
+    expected_date_path = EXAMPLE_DATE
 
     assert model_storage.filesystem.exists(
         f"test_bucket/country=in-bd/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
     )
+
+
+def test__load_validation_metadata__with_missing_model_file__still_loads_metadata(
+    model_storage, trained_xgb_model
+):
+    validated_model = ValidatedModel(
+        model=trained_xgb_model,
+        cv_results=pd.DataFrame({"metric": [0.1, 0.2]}),
+        test_metrics={"rmse": 0.15},
+    )
+    model_storage.save_model("xgb_model", EXAMPLE_DATE, validated_model)
+
+    expected_date_path = EXAMPLE_DATE
+    model_path = (
+        f"test_bucket/country={TEST_COUNTRY}/xgb_model/{expected_date_path}/model+XGBRegressor.gz"
+    )
+    model_storage.filesystem.rm(model_path)
+
+    loaded_metadata = model_storage.load_validation_metadata("xgb_model", EXAMPLE_DATE)
+
+    assert list(loaded_metadata.cv_results["metric"]) == [0.1, 0.2]
+    assert loaded_metadata.test_metrics == {"rmse": 0.15}
+    assert loaded_metadata.model_run_ref == expected_date_path
+
+
+def test__load_validation_metadata__multiple_runs__loads_metadata_for_specific_run(
+    model_storage, trained_xgb_model
+):
+    validated_model_1 = ValidatedModel(
+        model=trained_xgb_model,
+        cv_results=pd.DataFrame({"metric": [1.0]}),
+        test_metrics={"rmse": 0.50},
+    )
+    validated_model_2 = ValidatedModel(
+        model=trained_xgb_model,
+        cv_results=pd.DataFrame({"metric": [2.0]}),
+        test_metrics={"rmse": 0.25},
+    )
+
+    model_storage.save_model("xgb_model", EXAMPLE_DATE, validated_model_1)
+    model_storage.save_model("xgb_model", EXAMPLE_DATE_LATER, validated_model_2)
+
+    loaded_metadata = model_storage.load_validation_metadata("xgb_model", EXAMPLE_DATE_LATER)
+
+    assert list(loaded_metadata.cv_results["metric"]) == [2.0]
+    assert loaded_metadata.test_metrics == {"rmse": 0.25}
+    assert loaded_metadata.model_run_ref == EXAMPLE_DATE_LATER

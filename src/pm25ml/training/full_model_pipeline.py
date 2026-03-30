@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import polars as pl
-from arrow import Arrow
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import StratifiedGroupKFold, cross_validate
 
@@ -31,12 +30,13 @@ class FullModelPipeline:
     Including imputation models and the final model.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         combined_storage: CombinedStorage,
         data_ref: FullModelReference,
         model_store: ModelStorage,
+        model_run_ref: str,
         n_jobs: int,
         input_data_artifact: DataArtifactRef,
     ) -> None:
@@ -44,6 +44,7 @@ class FullModelPipeline:
         self.data = data_ref
         self.combined_storage = combined_storage
         self.model_store = model_store
+        self.model_run_ref = model_run_ref
         self.n_jobs = n_jobs
         self.input_data_artifact = input_data_artifact
 
@@ -67,7 +68,7 @@ class FullModelPipeline:
 
         self.model_store.save_model(
             model_name=MODEL_NAME,
-            model_run_ref=Arrow.now(),
+            model_run_ref=self.model_run_ref,
             model=ValidatedModel(
                 model=trained_model,
                 cv_results=cv_results,

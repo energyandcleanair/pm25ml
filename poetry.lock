@@ -1373,6 +1373,61 @@ requests = "*"
 tests = ["absl-py", "geopandas", "numpy"]
 
 [[package]]
+name = "exactextract"
+version = "0.3.0"
+description = "Fast and accurate raster zonal statistics"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "exactextract-0.3.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:57ea01166b3e0d68a7b1d2448d7455a27eb31447bd19f0b5d37e7149edb54956"},
+    {file = "exactextract-0.3.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:ed6247e1dda560896cc74ce7ededbf5b651cd17d7054a92203a3f13a16a4f97d"},
+    {file = "exactextract-0.3.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fc87945c6644dd9eff3fd85a5be4d6446300a35f661cae458706415f12461ed9"},
+    {file = "exactextract-0.3.0-cp310-cp310-win32.whl", hash = "sha256:fe3ab1946421136d1ff5aa94a6836fda07c0e27141e5ad7fba0eebac1c31b7a8"},
+    {file = "exactextract-0.3.0-cp310-cp310-win_amd64.whl", hash = "sha256:a8458c08e796f266ccd9da4dedd5c62af6538eaef96a9d7ed38068a7b3dd1a7d"},
+    {file = "exactextract-0.3.0-cp310-cp310-win_arm64.whl", hash = "sha256:3c3888c66671f415efc41868934591aa702da9c7c944dc9cbcd422d38d052027"},
+    {file = "exactextract-0.3.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:eec5d11bc71cbf185e8d4f0408b0e97a272a9fa196ebc55706821475c36c11f1"},
+    {file = "exactextract-0.3.0-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:c47c5bbbf8e1a427219fe8f10674a5888324db2fc5b9452ad93876e5f527bb72"},
+    {file = "exactextract-0.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bbb6c64d6d1878fb2c0b36f7587c775bff3a007692a18c095ea5f9a887e5cb14"},
+    {file = "exactextract-0.3.0-cp311-cp311-win32.whl", hash = "sha256:f8dba5c566832d34e08887dd60e32ca552dbc6837993f8aae7fec973e30d3037"},
+    {file = "exactextract-0.3.0-cp311-cp311-win_amd64.whl", hash = "sha256:85585d0efd46af56c964303e14957aff2207b98fcccc1b3dbe0f618e69110fb2"},
+    {file = "exactextract-0.3.0-cp311-cp311-win_arm64.whl", hash = "sha256:b407f023060a4bda609205f3f79dda2cf49890068c8caafe36625075864a7384"},
+    {file = "exactextract-0.3.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:232c1973200579548f5de20460198139d9902538b451db1a955af16eb3026f95"},
+    {file = "exactextract-0.3.0-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:562d6719b76e40d5707455edb91b8ffbebcc55f0bbefe577a6567a063338f597"},
+    {file = "exactextract-0.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7edb8c3654fabe25a5bebde0769e80a0bdba604e93e3a7ba9ea8054ff0571cef"},
+    {file = "exactextract-0.3.0-cp312-cp312-win32.whl", hash = "sha256:1ae80f2ee980a1fcd48e68fb4c9875d63047fd11508b79e00b6c4c435ef4e4ad"},
+    {file = "exactextract-0.3.0-cp312-cp312-win_amd64.whl", hash = "sha256:1fd94b08e70ee8ad546387c19f1ecdcaaea9250487ede47bc64b739bc9c6dcd0"},
+    {file = "exactextract-0.3.0-cp312-cp312-win_arm64.whl", hash = "sha256:1a0cb8de2d1efb723774025dd931a57bb62faff1e1f0a1fea96ab54c756e26a5"},
+    {file = "exactextract-0.3.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:3d54e31fd810273e3602f42a6e550ac289af261f2290f4dccabb1eae334aadf5"},
+    {file = "exactextract-0.3.0-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:41a002606cf1f50b5c3c60bbff3a6cb7b9f5b169019d0a9bf5dc0a8b786ce994"},
+    {file = "exactextract-0.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5a083204365302b287949b0e16523fbc0fdbf36b8d8c23416ac5b169e92a36ea"},
+    {file = "exactextract-0.3.0-cp313-cp313-win32.whl", hash = "sha256:815b754f86f642fcfb9d773a037a5cf6fab4cb71d620a50675f285884e29aa3b"},
+    {file = "exactextract-0.3.0-cp313-cp313-win_amd64.whl", hash = "sha256:6a836258dea7d94b584cfbfa19801c3bf7783f1f25e30e9f59af216cf589b275"},
+    {file = "exactextract-0.3.0-cp313-cp313-win_arm64.whl", hash = "sha256:f87bc32beeaf35e0c42184a0c4ea605ab26e5d209479c59be895603bbe4b6947"},
+    {file = "exactextract-0.3.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:0e44ec94cc320f4575ed9387d5c743ed2d9fbbb77818e08cf6d87ef2f53d0230"},
+    {file = "exactextract-0.3.0-cp314-cp314-macosx_11_0_x86_64.whl", hash = "sha256:7f918335661a2325851a35b676939750b0f181458caee5ffa8a33f8a03b77616"},
+    {file = "exactextract-0.3.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3f6bb5404c92336d6f8e5fe1ea2b67698a59dab9d29e68b60d0d677a6cdbb761"},
+    {file = "exactextract-0.3.0-cp314-cp314-win32.whl", hash = "sha256:5733e85861b27d199198f1ca7768afb83606fb14a06a00d4109c6e38af4969d9"},
+    {file = "exactextract-0.3.0-cp314-cp314-win_amd64.whl", hash = "sha256:fd93751fb2ec324d9e1de53c4acb2373682da51094842174812703d48bda8e2e"},
+    {file = "exactextract-0.3.0-cp314-cp314-win_arm64.whl", hash = "sha256:99ac77785cf82c622df6824a64ca60052877896c8b525d7604cad19ed8fb98fe"},
+    {file = "exactextract-0.3.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:1caad843092d2128cd99f9b2c2d4c8764069659b396c6aabef26b85a129681cc"},
+    {file = "exactextract-0.3.0-cp314-cp314t-macosx_11_0_x86_64.whl", hash = "sha256:896de5d17b30606d92a657456b3ac3f263d516abd069fff0af78b3484e810d6c"},
+    {file = "exactextract-0.3.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:23e00f98f2a62f843175f7399a20e265eb29fe06cb4883bafbb3a656bbee12fb"},
+    {file = "exactextract-0.3.0-cp314-cp314t-win32.whl", hash = "sha256:a537197e70d25219309872284a77e7158c9139dde0a0604cd2cc6370800c672a"},
+    {file = "exactextract-0.3.0-cp314-cp314t-win_amd64.whl", hash = "sha256:e2f27d3948a8d0300f939615801b8e692ac65e8b18676c9f4174c755eebd5896"},
+    {file = "exactextract-0.3.0-cp314-cp314t-win_arm64.whl", hash = "sha256:f45374a056bbb004a92f55738c466f946e0ca14fcb1213906f67a787508bc1bd"},
+    {file = "exactextract-0.3.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:f26883160b9a3e400edf5534211774712918f2a53c95fa0bd1d206f2554ad23f"},
+    {file = "exactextract-0.3.0-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:ca4059ef9d993e4cab66c16f807b72281f9ca2af26f1f958622b9c45ae873885"},
+    {file = "exactextract-0.3.0-cp39-cp39-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:278078395f70a1463493d704032f75f74f595cfda23e32556624003ba99bf15f"},
+    {file = "exactextract-0.3.0-cp39-cp39-win32.whl", hash = "sha256:e066c8fcb5b0d91e9621bd3f4688d81a6a0267e63982f9758e1914907a0b5c60"},
+    {file = "exactextract-0.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:66e04491b39ac40ca58c693a05ef53a59812058fba90c477caac99fa605bcd27"},
+    {file = "exactextract-0.3.0-cp39-cp39-win_arm64.whl", hash = "sha256:a2a1cd07612f65768695e0e5880ae9981aa25c51e506d7f7a93b00c63b70d143"},
+    {file = "exactextract-0.3.0.tar.gz", hash = "sha256:5864eab819474967e30c6a0118af3658da08d0b5ec1c2b8f747fb009b6b7856c"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "executing"
 version = "2.2.1"
 description = "Get the currently executing AST node of a frame, and other information"
@@ -6558,4 +6613,4 @@ test = ["coverage (>=7.10)", "hypothesis", "mypy", "numpydoc", "packaging", "pyt
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "cdee13da4aa1bbb4a7fcc014bdf5b22b992eef55eaafef947465c8035c2b6d85"
+content-hash = "40206c6ace9aac2b355788693951ecd41ab506f3c8f371ebf075bb2c8bbf88f8"

@@ -50,7 +50,7 @@ from pm25ml.sample.imputation_sampler import ImputationSamplerDefinition
 from pm25ml.setup.date_params import TemporalConfig
 from pm25ml.setup.pipelines import define_pipelines
 from pm25ml.setup.pm25_filters import define_filters
-from pm25ml.setup.result_writers import define_result_writers
+from pm25ml.setup.result_writers import define_result_writers, define_stats_writers
 from pm25ml.setup.samplers import ImputationStep, define_samplers
 from pm25ml.setup.training import build_model_ref
 from pm25ml.setup.training_full import build_full_model_ref
@@ -69,6 +69,18 @@ NO_OP = lambda x: x  # noqa: E731
 def _boolean_selector_to_bool(selector: BooleanSelector) -> bool:
     """Convert a BooleanSelector to a boolean."""
     return selector == "true"
+
+
+def _resolve_model_run_ref(model_run_ref: str | None) -> str:
+    """Resolve model run reference from env value or current UTC timestamp string."""
+    if model_run_ref is None or not model_run_ref.strip():
+        return arrow.utcnow().format("YYYY-MM-DD+HH-mm-ss")
+
+    cleaned_ref = model_run_ref.strip()
+    if not cleaned_ref:
+        msg = "MODEL_RUN_REF cannot be empty"
+        raise ValueError(msg)
+    return cleaned_ref
 
 
 @contextmanager
@@ -217,6 +229,11 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         TemporalConfig,
         start_date=config.start_month,
         end_date=config.end_month,
+    )
+
+    model_run_ref = providers.Singleton(
+        _resolve_model_run_ref,
+        model_run_ref=config.model_run_ref,
     )
 
     gee_auth = providers.Resource(
@@ -411,11 +428,13 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         model_reference,
         combined_storage,
         model_store,
+        model_run_ref,
         n_jobs,
         input_data_artifact: ImputationModelPipeline(
             combined_storage=combined_storage,
             data_ref=model_reference,
             model_store=model_store,
+            model_run_ref=model_run_ref,
             n_jobs=n_jobs,
             input_data_artifact=input_data_artifact.for_sub_artifact(
                 model_reference.model_name,
@@ -423,6 +442,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         ),
         combined_storage=combined_storage,
         model_store=model_store,
+        model_run_ref=model_run_ref,
         n_jobs=config.max_parallel_tasks,
         input_data_artifact=data_artifacts_container.ml_imputer_sampled_super_stage.provided,
     )
@@ -440,6 +460,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     regression_model_imputer_controller = providers.Factory(
         ImputationController,
         model_store=model_store,
+        model_run_ref=model_run_ref,
         temporal_config=temporal_config,
         combined_storage=combined_storage,
         model_refs=ml_model_defs,
@@ -476,6 +497,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         combined_storage=combined_storage,
         data_ref=full_model_ref,
         model_store=model_store,
+        model_run_ref=model_run_ref,
         n_jobs=config.max_parallel_tasks,
         input_data_artifact=data_artifacts_container.ml_full_model_sample_stage.provided,
     )
@@ -483,6 +505,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     final_predict_controller = providers.Singleton(
         FinalPredictionController,
         model_store=model_store,
+        model_run_ref=model_run_ref,
         temporal_config=temporal_config,
         combined_storage=combined_storage,
         model_ref=full_model_ref,
@@ -494,12 +517,23 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         FinalResultStorage,
         filesystem=gcs_filesystem,
         destination_bucket=config.gcp.final_result_bucket,
+        output_path=providers.Callable(
+            lambda profile_id, run_ref: f"country={profile_id}/run={run_ref}",
+            profile_id=config.profile.id,
+            run_ref=model_run_ref,
+        ),
     )
 
     final_result_writers = providers.Singleton(
         define_result_writers,
         storage=final_result_storage,
-        profile_id=config.profile.id,
+        model_run_ref=model_run_ref,
+    )
+
+    final_stats_writers = providers.Singleton(
+        define_stats_writers,
+        storage=final_result_storage,
+        model_run_ref=model_run_ref,
     )
 
 
@@ -562,6 +596,8 @@ def init_dependencies_from_env() -> Pm25mlContainer:
         "SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX",
     )
 
+    container.config.model_run_ref.from_value(os.getenv("MODEL_RUN_REF"))
+
     container.config.imputation_steps.from_value(
         [
             # AOD
@@ -592,6 +628,11 @@ def init_dependencies_from_env() -> Pm25mlContainer:
     )
 
     container.init_resources()
+
+    logger.info(
+        "Using MODEL_RUN_REF: %s",
+        container.model_run_ref(),
+    )
 
     return container
 

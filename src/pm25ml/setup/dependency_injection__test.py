@@ -52,3 +52,38 @@ def test__stage_wiring__final_stages__are_connected() -> None:
     assert _stage(full_model_sampler_output) == "full_model_sample"
     assert _stage(full_model_training_input) == "full_model_sample"
     assert _stage(final_predict_output) == "final_prediction"
+
+
+def test__stage_wiring__final_result_writers__use_final_result_storage() -> None:
+    """Dataset output writers should only depend on final output storage and profile."""
+    container = Pm25mlContainer()
+
+    writer_kwargs = container.final_result_writers.kwargs
+
+    assert writer_kwargs["storage"] == container.final_result_storage
+    assert writer_kwargs["model_run_ref"] == container.model_run_ref
+
+
+def test__stage_wiring__final_stats_writers__use_final_result_storage() -> None:
+    """Stats writers should use final output storage and profile."""
+    container = Pm25mlContainer()
+
+    writer_kwargs = container.final_stats_writers.kwargs
+
+    assert writer_kwargs["storage"] == container.final_result_storage
+    assert writer_kwargs["model_run_ref"] == container.model_run_ref
+
+
+def test__run_ref_wiring__training_and_prediction__share_single_provider() -> None:
+    """All model training/prediction components should use the same run-ref provider."""
+    container = Pm25mlContainer()
+
+    trainer_kwargs = container.ml_model_trainer_factory.kwargs
+    full_model_kwargs = container.full_model_pipeline.kwargs
+    imputer_kwargs = container.regression_model_imputer_controller.kwargs
+    predictor_kwargs = container.final_predict_controller.kwargs
+
+    assert trainer_kwargs["model_run_ref"] == container.model_run_ref
+    assert full_model_kwargs["model_run_ref"] == container.model_run_ref
+    assert imputer_kwargs["model_run_ref"] == container.model_run_ref
+    assert predictor_kwargs["model_run_ref"] == container.model_run_ref

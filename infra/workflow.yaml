@@ -24,8 +24,19 @@ main:
             next: set_in_bd_profile_env
         next: invalid_profile
 
+    - validate_model_run_ref:
+        switch:
+          - condition: ${ map.get(args, "model_run_ref") == null }
+            next: missing_model_run_ref
+          - condition: ${ string(map.get(args, "model_run_ref")) == "" }
+            next: missing_model_run_ref
+        next: build_common_env
+
     - missing_profile:
         raise: "Missing required workflow arg: profile"
+
+    - missing_model_run_ref:
+        raise: "Missing required workflow arg: model_run_ref"
 
     - invalid_profile:
         raise: '${ "Invalid profile value: " + string(profile) + ". Expected one of: india, in-bd" }'
@@ -33,18 +44,20 @@ main:
     - set_india_profile_env:
         assign:
           - profile_env: ${ india_profile_env }
-        next: build_common_env
+        next: validate_model_run_ref
 
     - set_in_bd_profile_env:
         assign:
           - profile_env: ${ in_bd_profile_env }
-        next: build_common_env
+        next: validate_model_run_ref
 
     - build_common_env:
         assign:
+          - model_run_ref: ${ map.get(args, "model_run_ref") }
           - common_env:
               GCP_PROJECT: vital-form-455413-p8
               PIPELINE_PROFILE: ${profile}
+              MODEL_RUN_REF: ${model_run_ref}
               GEE_GRID_ASSET_PATH: ${profile_env.GEE_GRID_ASSET_PATH}
               PROFILE_GRID_CELL_COUNT: ${profile_env.PROFILE_GRID_CELL_COUNT}
               PM25_SOURCE_IDS: ${profile_env.PM25_SOURCE_IDS}

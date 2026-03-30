@@ -6,8 +6,10 @@ Behavior: run the specified step and all subsequent steps; skip those before.
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from runpy import run_module
 
 
@@ -72,6 +74,10 @@ _aliases: dict[str, str] = {
 
 
 def _main(continue_from: str) -> None:
+    os.environ.setdefault(
+        "MODEL_RUN_REF",
+        datetime.now(timezone.utc).strftime("%Y-%m-%d+%H-%M-%S"),
+    )
     start_key = _resolve_continue_from(continue_from)
     _run_steps_from(start_key)
 

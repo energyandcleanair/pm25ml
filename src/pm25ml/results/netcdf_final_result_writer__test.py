@@ -1,4 +1,3 @@
-import re
 import tempfile
 from pathlib import Path
 from typing import cast
@@ -9,20 +8,24 @@ import xarray as xr
 from morefs.memory import MemFS
 
 from pm25ml.collectors.geo_time_grid_dataset import GeoTimeGridDataset, as_geo_time_grid
-from pm25ml.combiners.data_artifact import DataArtifactRef
 from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.results.netcdf_final_result_writer import NetCdfResultWriter
 
 
 DESTINATION_BUCKET = "test_bucket"
 TEST_COUNTRY = "india"
+MODEL_RUN_REF = "release-2026.03"
 
 
 @pytest.fixture()
 def mem_storage() -> FinalResultStorage:
     """Final storage backed by MemFS."""
     fs = MemFS()
-    return FinalResultStorage(filesystem=fs, destination_bucket=DESTINATION_BUCKET)
+    return FinalResultStorage(
+        filesystem=fs,
+        destination_bucket=DESTINATION_BUCKET,
+        output_path=f"country={TEST_COUNTRY}/run={MODEL_RUN_REF}",
+    )
 
 
 def _make_dataset(time_len: int = 16, y_len: int = 82, x_len: int = 72) -> GeoTimeGridDataset:
@@ -66,27 +69,24 @@ def _make_dataset(time_len: int = 16, y_len: int = 82, x_len: int = 72) -> GeoTi
 def test__netcdf_writer__writes_to_memfs_and_preserves_cf_attrs(
     mem_storage: FinalResultStorage,
 ) -> None:
-    output_ref = DataArtifactRef(stage="final_maps", country=TEST_COUNTRY)
     writer = NetCdfResultWriter(
-        output_ref=output_ref,
-        file_prefix="pm25_daily_2023-01",
+        model_run_ref=MODEL_RUN_REF,
         output_storage=mem_storage,
     )
 
     ds: GeoTimeGridDataset = _make_dataset()
     writer.write(ds)
 
-    # Verify a file exists in MemFS at the expected path (filename includes timestamp)
-    rel_dir = f"{output_ref.initial_path}"
+    # Verify a file exists in MemFS at the expected path.
+    rel_dir = f"country={TEST_COUNTRY}/run={MODEL_RUN_REF}"
     expected_dir = f"{DESTINATION_BUCKET}/{rel_dir}"
     files = mem_storage.filesystem.ls(expected_dir)
     assert len(files) == 1, f"Expected exactly one file in {expected_dir}, found: {files}"
 
-    # Verify filename matches expected pattern with timestamp
+    # Verify filename matches expected run-ref and suffix pattern.
     file_path = files[0]
     file_name = Path(file_path).name
-    pattern = r"^pm25_daily_2023-01_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.nc$"
-    assert re.match(pattern, file_name), f"Filename {file_name} doesn't match expected pattern"
+    assert file_name == "release-2026.03_pm25-full.nc"
 
     full_path = file_path
 

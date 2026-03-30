@@ -4,7 +4,9 @@ import gc
 
 from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.combiners.data_artifact import DataArtifactRef
-from pm25ml.imputation.from_model.regression_model_predictor import RegressionModelPredictor
+from pm25ml.imputation.from_model.regression_model_predictor import (
+    RegressionModelPredictor,
+)
 from pm25ml.logging import logger
 from pm25ml.model_reference import FullModelReference
 from pm25ml.setup.date_params import TemporalConfig
@@ -21,6 +23,7 @@ class FinalPredictionController:
     def __init__(  # noqa: PLR0913
         self,
         model_store: ModelStorage,
+        model_run_ref: str,
         temporal_config: TemporalConfig,
         combined_storage: CombinedStorage,
         model_ref: FullModelReference,
@@ -29,6 +32,7 @@ class FinalPredictionController:
     ) -> None:
         """Build a RegressionModelImputer instance."""
         self.model_store = model_store
+        self.model_run_ref = model_run_ref
         self.temporal_config = temporal_config
         self.combined_storage = combined_storage
         self.model_ref = model_ref
@@ -37,7 +41,7 @@ class FinalPredictionController:
 
     def predict(self) -> None:
         """
-        Impute the data using the latest regression model for each model.
+        Impute the data using the regression model for the configured run reference.
 
         Do this for the time period specified by the temporal config.
         """
@@ -51,7 +55,7 @@ class FinalPredictionController:
         logger.info(f"Imputing for model: {model_name}")
 
         logger.debug(f"Loading model reference: {model_ref}")
-        latest_model = self.model_store.load_latest_model(model_name)
+        latest_model = self.model_store.load_model(model_name, self.model_run_ref)
         gc.collect()
 
         regression_model_imputer = RegressionModelPredictor(
