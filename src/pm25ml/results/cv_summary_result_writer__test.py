@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from morefs.memory import MemFS
 
 from pm25ml.results.cv_summary_result_writer import CvSummaryResultWriter
@@ -52,28 +53,7 @@ def test__write__writes_cv_summary_csv_to_expected_location_with_expected_column
     with storage.filesystem.open(files[0], "rb") as f:
         summary_df = pd.read_csv(f)
 
-    assert list(summary_df.columns) == [
-        "model_name",
-        "model_run_ref",
-        "metric",
-        "cv_mean",
-        "cv_std",
-        "cv_min",
-        "cv_max",
-    ]
-
-    assert set(summary_df["metric"]) == {
-        "fit_time",
-        "score_time",
-        "test_rmse",
-        "train_rmse",
-        "test_r2",
-        "train_r2",
-    }
-
-    test_rmse_row = summary_df.loc[summary_df["metric"] == "test_rmse"].iloc[0]
-    assert test_rmse_row["cv_mean"] == -2.0
-    assert test_rmse_row["cv_min"] == -2.5
-    assert test_rmse_row["cv_max"] == -1.5
-    assert all(summary_df["model_name"] == "full_pm25")
-    assert all(summary_df["model_run_ref"] == "2026-03-29+10-00-00")
+    assert list(summary_df.columns) == ["r2", "rmse_ugm3"]
+    assert len(summary_df) == 1
+    assert summary_df.iloc[0]["r2"] == pytest.approx(0.85)
+    assert summary_df.iloc[0]["rmse_ugm3"] == pytest.approx(2.0)
