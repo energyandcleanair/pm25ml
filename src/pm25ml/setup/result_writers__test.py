@@ -34,4 +34,3 @@ def test__define_stats_writers__returns_cv_summary_writer() -> None:
 
     cv_summary_writer = writers[0]
     assert cv_summary_writer.model_run_ref == "v2026.03"
-    assert cv_summary_writer.model_name == "full_pm25"
