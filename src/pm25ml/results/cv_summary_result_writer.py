@@ -30,7 +30,7 @@ class CvSummaryResultWriter:
 
         csv_bytes = output_df.to_csv(index=False).encode("utf-8")
 
-        filename = f"{self.model_run_ref}_cv-summary.csv"
+        filename = f"pm25-cv-summary_{self.model_run_ref}.csv"
 
         self.output_storage.write(
             BytesIO(csv_bytes),

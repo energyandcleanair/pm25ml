@@ -12,7 +12,7 @@ from pm25ml.collectors.geo_time_grid_dataset import GeoTimeGridDataset
 from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.results.final_result_writer import FinalResultWriter
 
-FILE_SUFFIX = "_pm25-full"
+FILE_PREFIX = "pm25-full"
 
 
 class NetCdfResultWriter(FinalResultWriter):
@@ -44,7 +44,7 @@ class NetCdfResultWriter(FinalResultWriter):
         """
         Write the given result to NetCDF and upload to final storage.
 
-        The destination key will be ``{run-root}/{run_ref<suffix>.nc}``.
+        The destination key will be ``{run-root}/{FILE_PREFIX}{run_ref}.nc``.
         """
         ds: Dataset = result.copy()
 
@@ -77,7 +77,7 @@ class NetCdfResultWriter(FinalResultWriter):
         # Direct streaming to remote filesystems isn't supported by h5netcdf/netcdf4 engines.
         # Using a local temp file ensures compatibility and low memory overhead.
         with tempfile.TemporaryDirectory(prefix="pm25ml_netcdf_") as tmpdir:
-            filename = f"{self.model_run_ref}{FILE_SUFFIX}.nc"
+            filename = f"{FILE_PREFIX}_{self.model_run_ref}.nc"
             tmp_path = Path(tmpdir) / filename
 
             compression_args: dict[str, Any] = {
