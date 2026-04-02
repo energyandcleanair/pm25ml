@@ -86,7 +86,7 @@ def test__netcdf_writer__writes_to_memfs_and_preserves_cf_attrs(
     # Verify filename matches expected run-ref and suffix pattern.
     file_path = files[0]
     file_name = Path(file_path).name
-    assert file_name == "release-2026.03_pm25-full.nc"
+    assert file_name == "pm25-full_release-2026.03.nc"
 
     full_path = file_path
 

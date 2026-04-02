@@ -48,7 +48,7 @@ def test__write__writes_cv_summary_csv_to_expected_location_with_expected_column
     assert len(files) == 1
 
     file_name = Path(files[0]).name
-    assert file_name == "v2.0.0_cv-summary.csv"
+    assert file_name == "pm25-cv-summary_v2.0.0.csv"
 
     with storage.filesystem.open(files[0], "rb") as f:
         summary_df = pd.read_csv(f)
