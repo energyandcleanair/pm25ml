@@ -142,8 +142,8 @@ class GriddedFeatureCollectionPlanner:
         date_summary = self._common_granularity(dates)
 
         def availability_checker() -> bool:
-            """Check the same non-empty condition enforced after an export."""
-            return images.size().getInfo() >= 1
+            """Check whether at least one source image exists without evaluating transforms."""
+            return collection.limit(1).size().getInfo() == 1
 
         return FeaturePlan(
             feature_name=self._generate_clean_name(

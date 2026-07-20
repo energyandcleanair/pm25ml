@@ -234,6 +234,27 @@ def test__GriddedFeatureCollectionPlanner_plan_daily_average__missing_days__drop
     )
 
 
+def test__plan_daily_average__availability_checks_only_one_source_image(
+    mock_gee_for_daily_average,
+) -> None:
+    grid = MagicMock()
+    planner = GriddedFeatureCollectionPlanner(grid=grid)
+    source_collection = mock_gee_for_daily_average[
+        "mock_ic_instance"
+    ].filterBounds.return_value.filterDate.return_value
+    source_collection.limit.return_value.size.return_value.getInfo.return_value = 1
+
+    plan = planner.plan_daily_average(
+        collection_name="FAKE/COLLECTION",
+        selected_bands=["AOD"],
+        dates=[get("2023-04-01")],
+    )
+
+    assert plan.is_data_available() is True
+    source_collection.limit.assert_called_once_with(1)
+    mock_gee_for_daily_average["from_images_mock"].size.assert_not_called()
+
+
 @pytest.fixture
 def mock_gee_for_static_feature():
     with (
