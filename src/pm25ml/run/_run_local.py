@@ -23,53 +23,60 @@ def _ordered_steps() -> list[Step]:
     """Return ordered list of (canonical_step_key, module_path)."""
     base = "pm25ml.run"
     return [
-        Step("s00_preflight", f"{base}.s00_preflight"),
-        Step("s01_fetch_and_combine", f"{base}.s01_fetch_and_combine"),
-        Step("s02_generate_features", f"{base}.s02_generate_features"),
-        Step("s03_sample_for_imputation", f"{base}.s03_sample_for_imputation"),
-        Step("s04_train_aod_imputer", f"{base}.s04_train_aod_imputer"),
-        Step("s04_train_co_imputer", f"{base}.s04_train_co_imputer"),
-        Step("s04_train_no2_imputer", f"{base}.s04_train_no2_imputer"),
-        Step("s05_impute", f"{base}.s05_impute"),
-        Step("s06_prep_for_full_model", f"{base}.s06_prep_for_full_model"),
-        Step("s07_train_full_model", f"{base}.s07_train_full_model"),
-        Step("s08_predict_full_model", f"{base}.s08_predict_full_model"),
+        Step("s000_preflight", f"{base}.s000_preflight"),
+        Step("s005_discover", f"{base}.s005_discover"),
+        Step("s010_fetch_and_combine", f"{base}.s010_fetch_and_combine"),
+        Step("s020_generate_features", f"{base}.s020_generate_features"),
+        Step("s030_sample_for_imputation", f"{base}.s030_sample_for_imputation"),
+        Step("s040_train_aod_imputer", f"{base}.s040_train_aod_imputer"),
+        Step("s040_train_co_imputer", f"{base}.s040_train_co_imputer"),
+        Step("s040_train_no2_imputer", f"{base}.s040_train_no2_imputer"),
+        Step("s050_impute", f"{base}.s050_impute"),
+        Step("s060_prep_for_full_model", f"{base}.s060_prep_for_full_model"),
+        Step("s070_train_full_model", f"{base}.s070_train_full_model"),
+        Step("s080_predict_full_model", f"{base}.s080_predict_full_model"),
     ]
 
 
 _steps = tuple(_ordered_steps())
 _aliases: dict[str, str] = {
-    # s00
-    "preflight": "s00_preflight",
-    "s00_preflight": "s00_preflight",
-    # s01
-    "fetch_and_combine": "s01_fetch_and_combine",
-    "s01_fetch_and_combine": "s01_fetch_and_combine",
-    # s02
-    "generate_features": "s02_generate_features",
-    "s02_generate_features": "s02_generate_features",
-    # s03
-    "sample_for_imputation": "s03_sample_for_imputation",
-    "s03_sample_for_imputation": "s03_sample_for_imputation",
-    # s04
-    "train_aod_imputer": "s04_train_aod_imputer",
-    "s04_train_aod_imputer": "s04_train_aod_imputer",
-    "train_co_imputer": "s04_train_co_imputer",
-    "s04_train_co_imputer": "s04_train_co_imputer",
-    "train_no2_imputer": "s04_train_no2_imputer",
-    "s04_train_no2_imputer": "s04_train_no2_imputer",
-    # s05
-    "impute": "s05_impute",
-    "s05_impute": "s05_impute",
-    # s06
-    "prep_for_full_model": "s06_prep_for_full_model",
-    "s06_prep_for_full_model": "s06_prep_for_full_model",
-    # s07
-    "train_full_model": "s07_train_full_model",
-    "s07_train_full_model": "s07_train_full_model",
-    # s08
-    "predict_full_model": "s08_predict_full_model",
-    "s08_predict_full_model": "s08_predict_full_model",
+    "preflight": "s000_preflight",
+    "s00_preflight": "s000_preflight",
+    "s000_preflight": "s000_preflight",
+    "discover": "s005_discover",
+    "s005_discover": "s005_discover",
+    "discover_and_collect": "s005_discover",
+    "s001_discover_and_collect": "s005_discover",
+    "fetch_and_combine": "s010_fetch_and_combine",
+    "s01_fetch_and_combine": "s010_fetch_and_combine",
+    "s010_fetch_and_combine": "s010_fetch_and_combine",
+    "generate_features": "s020_generate_features",
+    "s02_generate_features": "s020_generate_features",
+    "s020_generate_features": "s020_generate_features",
+    "sample_for_imputation": "s030_sample_for_imputation",
+    "s03_sample_for_imputation": "s030_sample_for_imputation",
+    "s030_sample_for_imputation": "s030_sample_for_imputation",
+    "train_aod_imputer": "s040_train_aod_imputer",
+    "s04_train_aod_imputer": "s040_train_aod_imputer",
+    "s040_train_aod_imputer": "s040_train_aod_imputer",
+    "train_co_imputer": "s040_train_co_imputer",
+    "s04_train_co_imputer": "s040_train_co_imputer",
+    "s040_train_co_imputer": "s040_train_co_imputer",
+    "train_no2_imputer": "s040_train_no2_imputer",
+    "s04_train_no2_imputer": "s040_train_no2_imputer",
+    "s040_train_no2_imputer": "s040_train_no2_imputer",
+    "impute": "s050_impute",
+    "s05_impute": "s050_impute",
+    "s050_impute": "s050_impute",
+    "prep_for_full_model": "s060_prep_for_full_model",
+    "s06_prep_for_full_model": "s060_prep_for_full_model",
+    "s060_prep_for_full_model": "s060_prep_for_full_model",
+    "train_full_model": "s070_train_full_model",
+    "s07_train_full_model": "s070_train_full_model",
+    "s070_train_full_model": "s070_train_full_model",
+    "predict_full_model": "s080_predict_full_model",
+    "s08_predict_full_model": "s080_predict_full_model",
+    "s080_predict_full_model": "s080_predict_full_model",
 }
 
 

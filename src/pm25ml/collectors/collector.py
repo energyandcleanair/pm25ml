@@ -82,13 +82,20 @@ class RawDataCollector:
         """
         self.metadata_validator = metadata_validator
 
-    def collect(self, processors: Collection[ExportPipeline]) -> Collection[UploadResult]:
+    def collect(
+        self,
+        processors: Collection[ExportPipeline],
+        *,
+        allow_missing_required: bool = False,
+    ) -> Collection[UploadResult]:
         """
         Collect data from the given processors and upload them to the archive storage.
 
         It will attempt to upload only those datasets that have not been uploaded before.
 
         :param processors: A collection of ExportPipeline instances to collect data from.
+        :param allow_missing_required: Return recognized missing-data outcomes for discovery
+            instead of failing the collection.
         """
         logger.info("Filtering down to only those datasets that need to be uploaded")
         # Now we only want to download the results if we never have before.
@@ -97,12 +104,20 @@ class RawDataCollector:
         filtered_processors = self._filter_processors_needing_upload(processors)
 
         logger.info(f"Downloading {len(filtered_processors)} datasets")
-        results = self._run_pipelines_in_parallel(filtered_processors)
+        results = self._run_pipelines_in_parallel(
+            filtered_processors,
+            allow_missing_required=allow_missing_required,
+        )
 
         # Check all results were uploaded successfully, not just the ones we
         # downloaded this time.
         logger.info("Validating all recent results")
-        self.metadata_validator.validate_all_results(results)
+        results_to_validate = [
+            result
+            for result in results
+            if result.completeness.data_available or result.pipeline_config.allows_missing_data
+        ]
+        self.metadata_validator.validate_all_results(results_to_validate)
 
         skipped_results = [
             UploadResult(
@@ -138,6 +153,8 @@ class RawDataCollector:
     def _run_pipelines_in_parallel(
         self,
         filtered_processors: Collection[ExportPipeline],
+        *,
+        allow_missing_required: bool = False,
     ) -> list[UploadResult]:
         if not filtered_processors:
             logger.info("No processors to run, skipping upload.")
@@ -159,7 +176,7 @@ class RawDataCollector:
                     )
                     processor.upload()
                 except MissingDataError as e:
-                    if allows_missing_data:
+                    if allows_missing_data or allow_missing_required:
                         logger.warning(
                             f"Missing data for processor {result_subpath}",
                             exc_info=True,

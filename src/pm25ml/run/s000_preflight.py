@@ -217,5 +217,5 @@ def _main(container: Pm25mlContainer) -> None:
 
 
 if __name__ == "__main__":
-    container = init_dependencies_from_env()
+    container = init_dependencies_from_env(end_month_mode="none")
     _main(container)

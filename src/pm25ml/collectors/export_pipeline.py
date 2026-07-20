@@ -141,6 +141,11 @@ class PipelineConfig:
     """
     How consumers of the export pipeline should behave.
     """
+    constrains_end_month: bool = True
+    """
+    Whether this pipeline has a missing-data check that can constrain automatic end-month
+    discovery. Pipelines without such a check are collected normally after a month is selected.
+    """
 
     @property
     def all_columns(self) -> set[str]:

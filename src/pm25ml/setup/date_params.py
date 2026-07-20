@@ -4,7 +4,7 @@ from arrow import Arrow
 from attr import dataclass
 
 
-@dataclass
+@dataclass(frozen=True)
 class TemporalConfig:
     """Configuration for the temporal aspects of the PM2.5 ML pipeline."""
 
@@ -16,6 +16,12 @@ class TemporalConfig:
     """
     The end date of the pipeline, inclusive of whole month.
     """
+
+    def __attrs_post_init__(self) -> None:
+        """Validate that the configured month range is ordered."""
+        if self.start_date.floor("month") > self.end_date.floor("month"):
+            msg = "START_MONTH must not be later than END_MONTH"
+            raise ValueError(msg)
 
     @property
     def end_date_exclusive(self) -> Arrow:

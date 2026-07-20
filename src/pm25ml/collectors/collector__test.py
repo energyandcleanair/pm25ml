@@ -151,3 +151,29 @@ def test__run_pipelines_in_parallel__allows_missing_error__runs_pipeline_success
             UploadResult(process_2.get_config_metadata(), DataCompleteness.COMPLETE, None),
         ]
     )
+
+
+def test__collect__discovery_mode__returns_required_missing_data_without_validating_it(
+    collector, mock_metadata_validator
+):
+    processor = create_autospec(ExportPipeline)
+    processor.get_config_metadata.return_value = PipelineConfig(
+        result_subpath="country=india/dataset=required/month=2026-06",
+        id_columns={"date", "grid_id"},
+        value_column_type_map={"value": ValueColumnType.FLOAT},
+        expected_rows=0,
+    )
+    missing_error = MissingDataError("not published yet")
+    processor.upload.side_effect = missing_error
+    mock_metadata_validator.needs_upload.return_value = True
+
+    results = collector.collect([processor], allow_missing_required=True)
+
+    assert results == [
+        UploadResult(
+            processor.get_config_metadata(),
+            DataCompleteness.EMPTY,
+            missing_error,
+        )
+    ]
+    mock_metadata_validator.validate_all_results.assert_called_once_with([])

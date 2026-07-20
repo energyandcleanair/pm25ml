@@ -141,6 +141,10 @@ class GriddedFeatureCollectionPlanner:
 
         date_summary = self._common_granularity(dates)
 
+        def availability_checker() -> bool:
+            """Check the same non-empty condition enforced after an export."""
+            return images.size().getInfo() >= 1
+
         return FeaturePlan(
             feature_name=self._generate_clean_name(
                 "grid-daily-average",
@@ -151,6 +155,7 @@ class GriddedFeatureCollectionPlanner:
             column_mappings=column_mappings,
             expected_n_rows=self._get_n_grids() * len(dates),
             dates=dates,
+            availability_checker=availability_checker,
         )
 
     def plan_static_feature(

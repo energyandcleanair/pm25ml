@@ -133,6 +133,9 @@ class Pm25MeasurementsPipeline(ExportPipeline):
                 "pm25": ValueColumnType.FLOAT,
             },
             expected_rows=self.in_memory_grid.n_rows * self._days_in_month,
+            # The PM2.5 collector currently materialises missing measurements as null rows and
+            # therefore has no missing-data signal that can select one month over another.
+            constrains_end_month=False,
         )
 
     def _filter_invalid(

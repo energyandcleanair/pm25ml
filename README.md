@@ -92,7 +92,7 @@ PIPELINE_PROFILE=india
 GEE_GRID_ASSET_PATH=projects/<gcp-project>/assets/grid_india_10km_shapefile
 PROFILE_GRID_CELL_COUNT=33074
 
-# Optional: when GEE_GRID_ASSET_PATH does not exist, s00_preflight will upload
+# Optional: when GEE_GRID_ASSET_PATH does not exist, s000_preflight will upload
 # this local zip to GCS and ingest it as a table asset.
 # GRID_SHAPEFILE_ZIP_PATH=assets/india/grid_10km_shapefiles.zip
 # Optional: use an already staged zip in GCS instead of uploading from local disk.
@@ -116,7 +116,13 @@ MODEL_STORAGE_BUCKET_NAME=
 
 # Use a limited period of time to run the analysis for - this makes training locally feasible.
 START_MONTH=2024-01-01
-END_MONTH=2024-06-30
+
+# Optional discovery input. When omitted, discovery selects the newest complete month.
+# END_MONTH=2024-06-30
+
+# Optional safety gateway for automatic selection. Defaults to 3. A value of 0 requires the
+# latest fully completed UTC calendar month; 3 also permits the three preceding months.
+MAX_DATA_LAG_MONTHS=3
 
 # This takes a fraction of the data we have to make training locally feasible.
 TAKE_MINI_TRAINING_SAMPLE=true
@@ -201,6 +207,7 @@ areas in the document below.
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
 flowchart TB
+  discover_end_month["**Discover end month**"]
   train_pm25_model["Train PM2.5 model"]
   collect_features["`
     **Collect and prepare data**
@@ -210,6 +217,7 @@ flowchart TB
   train_imputation_models["Train and evaluate imputation models"]
   predict_pm25["Predict PM2.5"]
 
+  discover_end_month --> collect_features
   train_imputation_models --> impute_satellite
 
   collect_features --> impute_satellite
@@ -220,6 +228,35 @@ flowchart TB
   impute_satellite --> predict_pm25
 
 
+```
+
+### Discover end month
+
+The discovers stage determines the end month before data collection begins. It uses an
+explicit `END_MONTH` when supplied. Otherwise, it starts at the latest completed UTC calendar
+month and moves backward until the required data is available and complete.
+
+Automatic discovery checks up to `MAX_DATA_LAG_MONTHS`, which defaults to `3`, and raises a
+stale-data error if no suitable month is found. The result is stored by `PIPELINE_PROFILE` and
+`MODEL_RUN_REF`; all later stages use this stored value.
+
+```mermaid
+%%{init: {"flowchart": {"htmlLabels": false}} }%%
+flowchart TB
+  explicit_end_month["Optional configured end month"]
+  latest_completed_month["Latest completed UTC month"]
+
+  discover{{"`
+    **Discover end month**
+    Check required data availability and completeness
+  `"}}
+
+  persist{{"Persist for profile and model run"}}
+  resolved_end_month["**Resolved end month**"]
+
+  explicit_end_month --> discover
+  latest_completed_month --> discover
+  discover --> persist --> resolved_end_month
 ```
 
 ### Collect and prepare features

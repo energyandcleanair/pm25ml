@@ -17,6 +17,7 @@ from gcsfs import GCSFileSystem
 from pm25ml.collectors.archive_storage import IngestArchiveStorage
 from pm25ml.collectors.archived_file_validator import ArchivedFileValidator
 from pm25ml.collectors.collector import RawDataCollector
+from pm25ml.collectors.end_month_selector import EndMonthCoordinator
 from pm25ml.collectors.gee.feature_planner import GriddedFeatureCollectionPlanner
 from pm25ml.collectors.gee.gee_export_pipeline import GeePipelineConstructor
 from pm25ml.collectors.gee.intermediate_storage import GeeIntermediateStorage
@@ -48,7 +49,12 @@ from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.sample.full_model_sampler import FullModelSampler
 from pm25ml.sample.imputation_sampler import ImputationSamplerDefinition
 from pm25ml.setup.date_params import TemporalConfig
-from pm25ml.setup.pipelines import define_pipelines
+from pm25ml.setup.end_month import (
+    EndMonthStore,
+    parse_max_data_lag_months,
+    resolve_end_month,
+)
+from pm25ml.setup.pipelines import EndMonthCandidatePipelineFactory, define_pipelines
 from pm25ml.setup.pm25_filters import define_filters
 from pm25ml.setup.result_writers import define_result_writers, define_stats_writers
 from pm25ml.setup.samplers import ImputationStep, define_samplers
@@ -316,6 +322,14 @@ class Pm25mlContainer(containers.DeclarativeContainer):
         profile_id=config.profile.id,
     )
 
+    end_month_store = providers.Singleton(
+        EndMonthStore,
+        filesystem=gcs_filesystem,
+        bucket=config.gcp.combined_bucket,
+        profile_id=config.profile.id,
+        model_run_ref=model_run_ref,
+    )
+
     archived_wide_combiner = providers.Singleton(
         ArchiveWideCombiner,
         archive_storage=archive_storage,
@@ -332,6 +346,27 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     collector = providers.Singleton(
         RawDataCollector,
         metadata_validator=metadata_validator,
+    )
+
+    end_month_candidate_pipeline_factory = providers.Singleton(
+        EndMonthCandidatePipelineFactory,
+        gee_pipeline_constructor=gee_pipeline_constructor,
+        ned_pipeline_constructor=ned_pipeline_constructor,
+        in_memory_grid=in_memory_grid,
+        archive_storage=archive_storage,
+        feature_planner=feature_planner,
+        profile_id=config.profile.id,
+    )
+
+    end_month_coordinator = providers.Singleton(
+        EndMonthCoordinator,
+        collector=collector,
+        candidate_pipeline_factory=end_month_candidate_pipeline_factory,
+        start_date=config.start_month,
+        configured_end_month=config.end_month,
+        source=config.end_month_source,
+        max_data_lag_months=config.max_data_lag_months,
+        store=end_month_store,
     )
 
     pipelines = providers.Singleton(
@@ -537,12 +572,19 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     )
 
 
-def init_dependencies_from_env() -> Pm25mlContainer:
+def init_dependencies_from_env(
+    *,
+    end_month_mode: Literal["none", "discovery", "persisted"] = "persisted",
+) -> Pm25mlContainer:
     """
     Create a container instance with configuration loaded from environment variables.
 
     Returns:
         Container: An instance of the Container class with configuration set.
+
+    Args:
+        end_month_mode: Skip date configuration for preflight, allow discovery inputs for the
+            discovery stage, or require the persisted value for normal runtime stages.
 
     """
     container = Pm25mlContainer()
@@ -590,13 +632,28 @@ def init_dependencies_from_env() -> Pm25mlContainer:
     logger.info(f"Using local training: {container.config.take_mini_training_sample_selector()}")
 
     container.config.start_month.from_env("START_MONTH", as_=lambda x: arrow.get(x, "YYYY-MM-DD"))
-    container.config.end_month.from_env("END_MONTH", as_=lambda x: arrow.get(x, "YYYY-MM-DD"))
+
+    model_run_ref = _resolve_model_run_ref(os.getenv("MODEL_RUN_REF"))
+    container.config.model_run_ref.from_value(model_run_ref)
+
+    if end_month_mode != "none":
+        resolved_end_month_config = resolve_end_month(
+            explicit_value=os.getenv("END_MONTH") if end_month_mode == "discovery" else None,
+            store=container.end_month_store(),
+            allow_provisional=end_month_mode == "discovery",
+        )
+
+        container.config.end_month.from_value(resolved_end_month_config.month)
+        container.config.end_month_source.from_value(resolved_end_month_config.source)
+        container.config.max_data_lag_months.from_value(
+            parse_max_data_lag_months(os.getenv("MAX_DATA_LAG_MONTHS"))
+            if resolved_end_month_config.source == "provisional"
+            else 3,
+        )
 
     container.config.spatial_computation_value_column_regex.from_env(
         "SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX",
     )
-
-    container.config.model_run_ref.from_value(os.getenv("MODEL_RUN_REF"))
 
     container.config.imputation_steps.from_value(
         [
