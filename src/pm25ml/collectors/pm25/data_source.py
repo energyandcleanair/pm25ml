@@ -26,19 +26,17 @@ class CreaMeasurementsApiDataSource:
 
     def __init__(
         self,
-        temporal_config: TemporalConfig,
         source_ids: tuple[str, ...],
     ) -> None:
         """Initialize the data source."""
-        self.temporal_config = temporal_config
         self.source_ids = source_ids
 
-        self._station_stats_cache: pl.DataFrame | None = None
+        self._station_stats_cache: dict[tuple[str, ...], pl.DataFrame] = {}
         self._station_stats_lock = threading.Lock()
         self._stations_cache: pl.DataFrame | None = None
         self._stations_lock = threading.Lock()
 
-    def fetch_station_stats(self) -> pl.DataFrame:
+    def fetch_station_stats(self, temporal_config: TemporalConfig) -> pl.DataFrame:
         """
         Fetch station statistics for a given date range.
 
@@ -54,7 +52,7 @@ class CreaMeasurementsApiDataSource:
                     m.format("YYYY-MM-DD"),
                     m.shift(months=1).shift(days=-1).format("YYYY-MM-DD"),
                 )
-                for m in self.temporal_config.months
+                for m in temporal_config.months
             ]
 
             measurements_urls = [
@@ -80,12 +78,12 @@ class CreaMeasurementsApiDataSource:
                 .collect()
             )
 
-        return self._get_cached_data(
-            cache_attr="_station_stats_cache",
-            lock=self._station_stats_lock,
-            fetch_fn=fetch_and_process,
-            cache_name="station stats",
-        )
+        cache_key = tuple(temporal_config.month_ids)
+        with self._station_stats_lock:
+            if cache_key not in self._station_stats_cache:
+                logger.info("Fetching station stats")
+                self._station_stats_cache[cache_key] = fetch_and_process()
+            return self._station_stats_cache[cache_key]
 
     def fetch_stations(self) -> pl.DataFrame:
         """

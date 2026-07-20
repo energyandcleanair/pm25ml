@@ -1,4 +1,4 @@
-"""Tests for end-month resolution and persistence."""
+"""Tests for end-month storage and configuration helpers."""
 
 import arrow
 import pytest
@@ -8,9 +8,10 @@ from pm25ml.setup.end_month import (
     EndMonthStore,
     UnresolvedEndMonthError,
     latest_completed_month,
+    load_persisted_temporal_config,
     parse_max_data_lag_months,
-    resolve_end_month,
 )
+from pm25ml.setup.settings import TemporalConfigRequest
 
 
 def _store(filesystem: MemFS | None = None) -> EndMonthStore:
@@ -28,64 +29,31 @@ def test__latest_completed_month__uses_previous_utc_calendar_month() -> None:
     assert latest_completed_month(now=now) == arrow.get("2026-06-01T00:00:00+00:00")
 
 
-def test__resolve_end_month__stored_value__takes_priority_over_explicit_input() -> None:
+def test__store__write_and_read__normalizes_to_month() -> None:
     store = _store()
-    store.write(arrow.get("2026-05-01"))
+    store.write(arrow.get("2026-05-18"))
 
-    result = resolve_end_month(
-        explicit_value="2020-02-29",
-        store=store,
-        allow_provisional=False,
-    )
-
-    assert result.month == arrow.get("2026-05-01")
-    assert result.source == "stored"
+    assert store.read_required() == arrow.get("2026-05-01")
 
 
-def test__resolve_end_month__explicit_input_without_stored_value__is_selected() -> None:
-    result = resolve_end_month(
-        explicit_value="2020-02-29",
-        store=_store(),
-        allow_provisional=True,
-    )
-
-    assert result.month == arrow.get("2020-02-29")
-    assert result.source == "explicit"
-
-
-def test__resolve_end_month__stored_value__is_reused() -> None:
-    filesystem = MemFS()
-    _store(filesystem).write(arrow.get("2026-05-18"))
-
-    result = resolve_end_month(
-        explicit_value=None,
-        store=_store(filesystem),
-        allow_provisional=False,
-    )
-
-    assert result.month == arrow.get("2026-05-01")
-    assert result.source == "stored"
-
-
-def test__resolve_end_month__missing_value_for_later_stage__raises() -> None:
+def test__store__missing_required_value__raises_actionable_error() -> None:
     with pytest.raises(UnresolvedEndMonthError, match="Run s005_discover first"):
-        resolve_end_month(
-            explicit_value=None,
-            store=_store(),
-            allow_provisional=False,
-        )
+        _store().read_required()
 
 
-def test__resolve_end_month__collection_stage__uses_provisional_previous_month() -> None:
-    result = resolve_end_month(
-        explicit_value=None,
-        store=_store(),
-        allow_provisional=True,
-        now=arrow.get("2026-07-20T00:00:00Z"),
+def test__load_persisted_temporal_config__combines_request_and_stored_end() -> None:
+    store = _store()
+    store.write(arrow.get("2026-05-18"))
+    request = TemporalConfigRequest(
+        start_month=arrow.get("2020-01-01"),
+        explicit_end_month=arrow.get("2024-01-01"),
+        max_data_lag_months=3,
     )
 
-    assert result.month == arrow.get("2026-06-01T00:00:00Z")
-    assert result.source == "provisional"
+    temporal_config = load_persisted_temporal_config(request, store)
+
+    assert temporal_config.start_date == arrow.get("2020-01-01")
+    assert temporal_config.end_date == arrow.get("2026-05-01")
 
 
 def test__parse_max_data_lag_months__default_and_boundary() -> None:

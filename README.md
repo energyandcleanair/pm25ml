@@ -207,19 +207,20 @@ areas in the document below.
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": false}} }%%
 flowchart TB
-  discover_end_month["**Discover end month**"]
   train_pm25_model["Train PM2.5 model"]
+  discover_end_month["Discover and persist end month"]
   collect_features["`
     **Collect and prepare data**
-    Includes grid metadata, observational data, and the measured station data.
+    Collects grid metadata, observational data, and measured station data
+    over the persisted month range.
   `"]
   impute_satellite["Impute satellite using models"]
   train_imputation_models["Train and evaluate imputation models"]
   predict_pm25["Predict PM2.5"]
 
-  discover_end_month --> collect_features
   train_imputation_models --> impute_satellite
 
+  discover_end_month --> collect_features
   collect_features --> impute_satellite
   collect_features --> train_imputation_models
   
@@ -230,15 +231,15 @@ flowchart TB
 
 ```
 
-### Discover end month
+### Resolve the collection end month
 
-The discovers stage determines the end month before data collection begins. It uses an
-explicit `END_MONTH` when supplied. Otherwise, it starts at the latest completed UTC calendar
-month and moves backward until the required data is available and complete.
+The discovery stage determines and persists the end month before collection begins. It uses an
+explicit `END_MONTH` when supplied. Otherwise, it starts at the latest completed UTC calendar month
+and moves backward until the required data is available and complete.
 
 Automatic discovery checks up to `MAX_DATA_LAG_MONTHS`, which defaults to `3`, and raises a
 stale-data error if no suitable month is found. The result is stored by `PIPELINE_PROFILE` and
-`MODEL_RUN_REF`; all later stages use this stored value.
+`MODEL_RUN_REF`; collection and all later temporal stages load that stored value explicitly.
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": false}} }%%

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import arrow
 from arrow import Arrow
 
+from pm25ml.setup.date_params import TemporalConfig
+
 if TYPE_CHECKING:
     from fsspec import AbstractFileSystem
 
-EndMonthSource = Literal["explicit", "stored", "provisional"]
+    from pm25ml.setup.settings import TemporalConfigRequest
 
 
 class UnresolvedEndMonthError(RuntimeError):
@@ -20,14 +21,6 @@ class UnresolvedEndMonthError(RuntimeError):
 
 class StaleDataError(RuntimeError):
     """Raised when no sufficiently recent complete month is available."""
-
-
-@dataclass(frozen=True)
-class ResolvedEndMonth:
-    """An end month together with the source used to resolve it."""
-
-    month: Arrow
-    source: EndMonthSource
 
 
 class EndMonthStore:
@@ -57,6 +50,17 @@ class EndMonthStore:
         with self.filesystem.open(self.path, "wt") as file:
             file.write(month.floor("month").format("YYYY-MM-DD"))
 
+    def read_required(self) -> Arrow:
+        """Read the stored month or explain how to create it."""
+        month = self.read()
+        if month is not None:
+            return month
+        msg = (
+            "No resolved end month exists for this PIPELINE_PROFILE and MODEL_RUN_REF. "
+            "Run s005_discover first."
+        )
+        raise UnresolvedEndMonthError(msg)
+
 
 def latest_completed_month(*, now: Arrow | None = None) -> Arrow:
     """Return the first day of the latest fully completed UTC calendar month."""
@@ -64,32 +68,15 @@ def latest_completed_month(*, now: Arrow | None = None) -> Arrow:
     return current.to("UTC").floor("month").shift(months=-1)
 
 
-def resolve_end_month(
-    *,
-    explicit_value: str | None,
+def load_persisted_temporal_config(
+    request: TemporalConfigRequest,
     store: EndMonthStore,
-    allow_provisional: bool,
-    now: Arrow | None = None,
-) -> ResolvedEndMonth:
-    """Resolve an explicit, stored, or provisional end month in priority order."""
-    stored = store.read()
-    if stored is not None:
-        return ResolvedEndMonth(month=stored, source="stored")
-
-    if explicit_value and explicit_value.strip():
-        return ResolvedEndMonth(
-            month=arrow.get(explicit_value.strip(), "YYYY-MM-DD"),
-            source="explicit",
-        )
-
-    if allow_provisional:
-        return ResolvedEndMonth(month=latest_completed_month(now=now), source="provisional")
-
-    msg = (
-        "END_MONTH is not set and no automatically resolved end month exists for this "
-        "PIPELINE_PROFILE and MODEL_RUN_REF. Run s005_discover first."
+) -> TemporalConfig:
+    """Build a runtime temporal configuration from the persisted end month."""
+    return TemporalConfig(
+        start_date=request.start_month,
+        end_date=store.read_required(),
     )
-    raise UnresolvedEndMonthError(msg)
 
 
 def parse_max_data_lag_months(value: str | None) -> int:

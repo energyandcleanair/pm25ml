@@ -61,13 +61,12 @@ def test__full_model_sampler__single_month__filters_nulls(
 
     sampler = FullModelSampler(
         combined_storage=combined_storage,
-        temporal_config=temporal_config_one_month,
         column_name="col_1",
         input_data_artifact=ORIGIN_ARTIFACT,
         output_data_artifact=RESULT_ARTIFACT,
     )
 
-    sampler.sample()
+    sampler.sample(temporal_config_one_month)
 
     result = combined_storage.read_dataframe(
         f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
@@ -113,12 +112,11 @@ def test__full_model_sampler__multiple_months__processes_all(
 
     sampler = FullModelSampler(
         combined_storage=combined_storage,
-        temporal_config=temporal_config_two_months,
         column_name="col_1",
         input_data_artifact=ORIGIN_ARTIFACT,
         output_data_artifact=RESULT_ARTIFACT,
     )
-    sampler.sample()
+    sampler.sample(temporal_config_two_months)
 
     jan = combined_storage.read_dataframe(
         f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
@@ -150,12 +148,11 @@ def test__full_model_sampler__all_null_column__writes_empty_dataset(
 
     sampler = FullModelSampler(
         combined_storage=combined_storage,
-        temporal_config=temporal_config_one_month,
         column_name="col_1",
         input_data_artifact=ORIGIN_ARTIFACT,
         output_data_artifact=RESULT_ARTIFACT,
     )
-    sampler.sample()
+    sampler.sample(temporal_config_one_month)
 
     result = combined_storage.read_dataframe(
         f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"

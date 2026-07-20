@@ -107,17 +107,15 @@ def test__impute__all_months_available__processes_all_months(
     manager = SpatialImputationManager(
         combined_storage=combined_storage_mock,
         spatial_imputer=mock_imputer_fills_missing,
-        temporal_config=TemporalConfig(
-            start_date=Arrow(2023, 1, 1),
-            end_date=Arrow(2023, 2, 1),
-        ),
         input_data_artifact=INPUT_DATA_ARTIFACT,
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
         n_grid_cells=N_GRID_CELLS,
     )
 
     # Call the method under test
-    manager.impute()
+    manager.impute(
+        TemporalConfig(start_date=Arrow(2023, 1, 1), end_date=Arrow(2023, 2, 1)),
+    )
 
     # Assertions
     combined_storage_mock.scan_stage.assert_called_once_with("combined_monthly")
@@ -163,10 +161,6 @@ def test__impute__missing_months__raises_value_error(
     manager = SpatialImputationManager(
         combined_storage=combined_storage_mock,
         spatial_imputer=mock_imputer,
-        temporal_config=TemporalConfig(
-            start_date=Arrow(2023, 1, 1),
-            end_date=Arrow(2023, 3, 1),
-        ),
         input_data_artifact=INPUT_DATA_ARTIFACT,
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
         n_grid_cells=N_GRID_CELLS,
@@ -176,7 +170,9 @@ def test__impute__missing_months__raises_value_error(
     with pytest.raises(
         ValueError, match="The following months are not present in the dataset: 2023-03"
     ):
-        manager.impute()
+        manager.impute(
+            TemporalConfig(start_date=Arrow(2023, 1, 1), end_date=Arrow(2023, 3, 1)),
+        )
 
 
 def test__impute__some_months_already_uploaded__skips_those_months(
@@ -201,17 +197,15 @@ def test__impute__some_months_already_uploaded__skips_those_months(
     manager = SpatialImputationManager(
         combined_storage=combined_storage_mock,
         spatial_imputer=mock_imputer_fills_missing,
-        temporal_config=TemporalConfig(
-            start_date=Arrow(2023, 1, 1),
-            end_date=Arrow(2023, 2, 1),
-        ),
         input_data_artifact=INPUT_DATA_ARTIFACT,
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
         n_grid_cells=N_GRID_CELLS,
     )
 
     # Call the method under test
-    manager.impute()
+    manager.impute(
+        TemporalConfig(start_date=Arrow(2023, 1, 1), end_date=Arrow(2023, 2, 1)),
+    )
 
     # Assertions
     combined_storage_mock.scan_stage.assert_called_once_with("combined_monthly")

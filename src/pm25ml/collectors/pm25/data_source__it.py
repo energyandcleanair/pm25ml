@@ -24,7 +24,6 @@ def test__fetch_station_data__no_duplicate_rows_per_date(
 ):
     """It should return at most one row per station per date."""
     ds = CreaMeasurementsApiDataSource(
-        temporal_config=temporal_config_test_month,
         source_ids=("cpcb",),
     )
 

@@ -15,6 +15,7 @@ from pm25ml.collectors.pm25.pm25_pipeline import (
 )
 from pm25ml.collectors.archive_storage import IngestArchiveStorage
 from pm25ml.collectors.grid import Grid
+from pm25ml.setup.date_params import TemporalConfig
 
 
 class _BaseFilter(Pm25MeasurementFilterMarker):  # pragma: no cover - trivial base for tests
@@ -73,7 +74,7 @@ class _FakeDataSource:
     def fetch_stations(self) -> pl.DataFrame:  # noqa: D401
         return self.stations_df
 
-    def fetch_station_stats(self) -> pl.DataFrame:  # noqa: D401
+    def fetch_station_stats(self, temporal_config: TemporalConfig) -> pl.DataFrame:  # noqa: ARG002,D401
         return self.station_stats_df
 
 
@@ -96,6 +97,11 @@ def _make_grid() -> Grid:
 @pytest.fixture
 def start_month() -> Arrow:
     return arrow_get(2023, 1, 1)
+
+
+@pytest.fixture
+def temporal_config(start_month: Arrow) -> TemporalConfig:
+    return TemporalConfig(start_date=start_month, end_date=start_month)
 
 
 @pytest.fixture
@@ -192,8 +198,13 @@ def pipeline(
     constructor: Pm25MeasurementsPipelineConstructor,
     result_subpath: str,
     start_month: Arrow,
+    temporal_config: TemporalConfig,
 ):
-    return constructor.construct(result_subpath=result_subpath, month=start_month)
+    return constructor.construct(
+        result_subpath=result_subpath,
+        month=start_month,
+        temporal_config=temporal_config,
+    )
 
 
 def test__pm25_pipeline__config_metadata__matches_expectations(
@@ -254,6 +265,7 @@ def test__collect_required_data__duplicate_location_id_date__raises_assertion_er
     station_stats_df: pl.DataFrame,
     archive_storage: IngestArchiveStorage,
     filters: list[Pm25MeasurementFilterMarker],
+    temporal_config: TemporalConfig,
 ):
     """It should raise AssertionError if there are duplicate (location_id, date) combinations."""
     # Create measurement data with duplicates for the same (location_id, date)
@@ -280,7 +292,11 @@ def test__collect_required_data__duplicate_location_id_date__raises_assertion_er
         crea_ds=fake_ds_with_duplicates,  # type: ignore[arg-type]
         archive_storage=archive_storage,
         filters=filters,
-    ).construct(result_subpath=result_subpath, month=start_month)
+    ).construct(
+        result_subpath=result_subpath,
+        month=start_month,
+        temporal_config=temporal_config,
+    )
 
     with pytest.raises(AssertionError, match="Found 1 duplicate.*location_id.*date"):
         pipeline._collect_required_data()

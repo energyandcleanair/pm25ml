@@ -1,89 +1,112 @@
-"""Contract tests for dependency injection stage wiring."""
+"""Behavioral contract tests for the dependency composition root."""
 
-from __future__ import annotations
+from unittest.mock import Mock, patch
 
 from dependency_injector import providers
 
-from pm25ml.setup.dependency_injection import Pm25mlContainer
+from pm25ml.combiners.combined_storage import CombinedStorage
+from pm25ml.collectors.end_month_selector import EndMonthCoordinator
+from pm25ml.setup.dependency_injection import Pm25mlContainer, init_dependencies_from_env
+from pm25ml.setup.end_month import EndMonthStore
+from pm25ml.setup.settings import PipelineSettings
+from pm25ml.training.model_storage import ModelStorage
 
 
-def _stage(provider: providers.ProvidedInstance) -> str:
-    stage = provider.provides.kwargs["stage"]
-    assert isinstance(stage, str)
-    return stage
+def _settings() -> PipelineSettings:
+    return PipelineSettings(
+        gcp_project="project",
+        csv_bucket="csv",
+        archive_bucket="archive",
+        combined_bucket="combined",
+        model_storage_bucket="models",
+        final_result_bucket="results",
+        grid_asset_path="grid",
+        profile_id="india",
+        grid_cell_count=10,
+        pm25_source_ids=("cpcb",),
+        max_parallel_tasks=2,
+        take_mini_training_sample=False,
+        spatial_computation_value_column_regex="^era5",
+        model_run_ref="run-1",
+    )
 
 
-def test__stage_wiring__sampling_and_training__share_sampled_stage() -> None:
-    """Sampled data must be produced by sampling and consumed by imputation training."""
+def _container() -> Pm25mlContainer:
     container = Pm25mlContainer()
-
-    sampler_input = container.imputation_samplers.kwargs["input_data_artifact"]
-    sampler_output = container.imputation_samplers.kwargs["output_data_artifact"]
-    trainer_input = container.ml_model_trainer_factory.kwargs["input_data_artifact"]
-
-    assert _stage(sampler_input) == "generated_features"
-    assert _stage(sampler_output) == "sampled"
-    assert _stage(trainer_input) == "sampled"
+    container.settings.override(providers.Object(_settings()))
+    container.combined_storage.override(providers.Object(Mock(spec=CombinedStorage)))
+    return container
 
 
-def test__stage_wiring__imputation_and_full_model__use_imputed_stage() -> None:
-    """Model imputation output must feed later full-model sampling and prediction."""
-    container = Pm25mlContainer()
+def test__data_artifacts__define_the_pipeline_stage_contract() -> None:
+    artifacts = _container().data_artifacts()
 
-    imputer_input = container.regression_model_imputer_controller.kwargs["input_data_artifact"]
-    imputer_output = container.regression_model_imputer_controller.kwargs["output_data_artifact"]
-    full_model_sampler_input = container.full_model_sampler.kwargs["input_data_artifact"]
-    final_predict_input = container.final_predict_controller.kwargs["input_data_artifact"]
-
-    assert _stage(imputer_input) == "generated_features"
-    assert _stage(imputer_output) == "imputed"
-    assert _stage(full_model_sampler_input) == "imputed"
-    assert _stage(final_predict_input) == "imputed"
-
-
-def test__stage_wiring__final_stages__are_connected() -> None:
-    """Full-model sample output should feed full-model training and final output stage."""
-    container = Pm25mlContainer()
-
-    full_model_sampler_output = container.full_model_sampler.kwargs["output_data_artifact"]
-    full_model_training_input = container.full_model_pipeline.kwargs["input_data_artifact"]
-    final_predict_output = container.final_predict_controller.kwargs["output_data_artifact"]
-
-    assert _stage(full_model_sampler_output) == "full_model_sample"
-    assert _stage(full_model_training_input) == "full_model_sample"
-    assert _stage(final_predict_output) == "final_prediction"
+    assert artifacts.combined.stage == "combined_monthly"
+    assert artifacts.spatially_imputed_era5.stage == "era5_spatially_imputed"
+    assert artifacts.spatially_imputed.stage == "combined_with_spatial_interpolation"
+    assert artifacts.generated_features.stage == "generated_features"
+    assert artifacts.sampled.stage == "sampled"
+    assert artifacts.imputed.stage == "imputed"
+    assert artifacts.full_model_sample.stage == "full_model_sample"
+    assert artifacts.final_prediction.stage == "final_prediction"
+    assert {artifact.country for artifact in artifacts.__dict__.values()} == {"india"}
 
 
-def test__stage_wiring__final_result_writers__use_final_result_storage() -> None:
-    """Dataset output writers should only depend on final output storage and profile."""
-    container = Pm25mlContainer()
+def test__initialization__does_not_resolve_temporal_or_external_resources() -> None:
+    with (
+        patch.object(PipelineSettings, "from_env", return_value=_settings()),
+        patch.object(EndMonthStore, "read_required") as read_required,
+        patch.object(EndMonthCoordinator, "resolve") as resolve,
+        patch("pm25ml.setup.dependency_injection.initialize_gee") as initialize_gee,
+    ):
+        container = init_dependencies_from_env()
 
-    writer_kwargs = container.final_result_writers.kwargs
-
-    assert writer_kwargs["storage"] == container.final_result_storage
-    assert writer_kwargs["model_run_ref"] == container.model_run_ref
-
-
-def test__stage_wiring__final_stats_writers__use_final_result_storage() -> None:
-    """Stats writers should use final output storage and profile."""
-    container = Pm25mlContainer()
-
-    writer_kwargs = container.final_stats_writers.kwargs
-
-    assert writer_kwargs["storage"] == container.final_result_storage
-    assert writer_kwargs["model_run_ref"] == container.model_run_ref
+    assert container.settings() == _settings()
+    read_required.assert_not_called()
+    resolve.assert_not_called()
+    initialize_gee.assert_not_called()
 
 
-def test__run_ref_wiring__training_and_prediction__share_single_provider() -> None:
-    """All model training/prediction components should use the same run-ref provider."""
-    container = Pm25mlContainer()
+def test__feature_generator__uses_adjacent_artifacts_without_temporal_state() -> None:
+    container = _container()
 
-    trainer_kwargs = container.ml_model_trainer_factory.kwargs
-    full_model_kwargs = container.full_model_pipeline.kwargs
-    imputer_kwargs = container.regression_model_imputer_controller.kwargs
-    predictor_kwargs = container.final_predict_controller.kwargs
+    generator = container.feature_generator()
 
-    assert trainer_kwargs["model_run_ref"] == container.model_run_ref
-    assert full_model_kwargs["model_run_ref"] == container.model_run_ref
-    assert imputer_kwargs["model_run_ref"] == container.model_run_ref
-    assert predictor_kwargs["model_run_ref"] == container.model_run_ref
+    assert not hasattr(container, "temporal_config")
+    assert not hasattr(generator, "temporal_config")
+    assert generator.input_data_artifact == container.data_artifacts().spatially_imputed
+    assert generator.output_data_artifact == container.data_artifacts().generated_features
+
+
+def test__full_model_sampler__connects_imputation_to_training_sample() -> None:
+    container = _container()
+
+    sampler = container.full_model_sampler()
+
+    assert sampler.input_data_artifact == container.data_artifacts().imputed
+    assert sampler.output_data_artifact == container.data_artifacts().full_model_sample
+
+
+def test__run_reference__comes_from_typed_settings() -> None:
+    container = _container()
+
+    assert container.model_run_ref() == "run-1"
+
+
+def test__training_and_prediction__share_artifacts_and_run_reference() -> None:
+    container = _container()
+    container.model_store.override(providers.Object(Mock(spec=ModelStorage)))
+
+    trainer = container.ml_model_trainer_factory(
+        model_reference=container.ml_model_defs()["aod"],
+    )
+    full_model_trainer = container.full_model_pipeline()
+    predictor = container.final_predict_controller()
+
+    assert trainer.input_data_artifact.stage == "sampled+aod"
+    assert full_model_trainer.input_data_artifact == container.data_artifacts().full_model_sample
+    assert predictor.input_data_artifact == container.data_artifacts().imputed
+    assert predictor.output_data_artifact == container.data_artifacts().final_prediction
+    assert {trainer.model_run_ref, full_model_trainer.model_run_ref, predictor.model_run_ref} == {
+        "run-1",
+    }

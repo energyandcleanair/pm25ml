@@ -21,26 +21,24 @@ class FeatureGenerator:
     def __init__(
         self,
         combined_storage: CombinedStorage,
-        temporal_config: TemporalConfig,
         input_data_artifact: DataArtifactRef,
         output_data_artifact: DataArtifactRef,
     ) -> None:
         """Initialize the FeatureGenerator."""
         self.combined_storage = combined_storage
-        self.temporal_config = temporal_config
         self.input_data_artifact = input_data_artifact
         self.output_data_artifact = output_data_artifact
 
-    def generate(self) -> None:
+    def generate(self, temporal_config: TemporalConfig) -> None:
         """Generate features for PM2.5 data."""
         lf = self.combined_storage.scan_stage(self.input_data_artifact.stage)
-        for year in self.temporal_config.years:
+        for year in temporal_config.years:
             logger.info(f"Generating features for year: {year}")
 
             # This window must include the current year and the previous year
             months_in_window = [
                 month.format("YYYY-MM")
-                for month in self.temporal_config.months
+                for month in temporal_config.months
                 if month.year in (year, year - 1)
             ]
 

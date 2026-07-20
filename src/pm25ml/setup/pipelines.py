@@ -13,7 +13,6 @@ from pm25ml.collectors.ned.data_reader_omno2d import Omno2dReader
 from pm25ml.collectors.ned.data_retriever_harmony import HarmonySubsetterDataRetriever
 from pm25ml.collectors.ned.data_retriever_raw import RawEarthAccessDataRetriever
 from pm25ml.collectors.ned.dataset_descriptor import NedDatasetDescriptor
-from pm25ml.setup.date_params import TemporalConfig
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterable
@@ -25,6 +24,7 @@ if TYPE_CHECKING:
     from pm25ml.collectors.grid import Grid
     from pm25ml.collectors.ned.ned_export_pipeline import NedPipelineConstructor
     from pm25ml.collectors.pm25.pm25_pipeline import Pm25MeasurementsPipelineConstructor
+    from pm25ml.setup.date_params import TemporalConfig
 
 
 MODIS_LAND_ALLOW_MISSING_FROM_YEAR = Arrow.now().year - 2
@@ -34,7 +34,7 @@ def define_pipelines(  # noqa: PLR0913
     *,
     gee_pipeline_constructor: GeePipelineConstructor,
     ned_pipeline_constructor: NedPipelineConstructor,
-    pm25_pipeline_constructor: Pm25MeasurementsPipelineConstructor | None,
+    pm25_pipeline_constructor: Pm25MeasurementsPipelineConstructor,
     in_memory_grid: Grid,
     archive_storage: IngestArchiveStorage,
     feature_planner: GriddedFeatureCollectionPlanner,
@@ -96,7 +96,7 @@ def define_pipelines(  # noqa: PLR0913
 
         month_short = month_start.format("YYYY-MM")
 
-        pipelines = [
+        return [
             gee_pipeline_constructor.construct(
                 plan=feature_planner.plan_daily_average(
                     collection_name="COPERNICUS/S5P/OFFL/L3_CO",
@@ -208,15 +208,12 @@ def define_pipelines(  # noqa: PLR0913
                 dataset_retriever=RawEarthAccessDataRetriever(),
                 result_subpath=f"country={profile_id}/dataset=omi_no2/month={month_short}",
             ),
+            pm25_pipeline_constructor.construct(
+                result_subpath=f"country={profile_id}/dataset=pm25/month={month_short}",
+                month=month_start,
+                temporal_config=temporal_config,
+            ),
         ]
-        if pm25_pipeline_constructor is not None:
-            pipelines.append(
-                pm25_pipeline_constructor.construct(
-                    result_subpath=f"country={profile_id}/dataset=pm25/month={month_short}",
-                    month=month_start,
-                ),
-            )
-        return pipelines
 
     yearly_pipelines = (
         [pipeline for year in temporal_config.years for pipeline in _yearly_pipelines(year)]
@@ -233,48 +230,3 @@ def define_pipelines(  # noqa: PLR0913
         *reversed(monthly_pipelines),
         *static_pipelines,
     ]
-
-
-class EndMonthCandidatePipelineFactory:
-    """Build only the required monthly pipelines used by end-month discovery."""
-
-    def __init__(  # noqa: PLR0913
-        self,
-        *,
-        gee_pipeline_constructor: GeePipelineConstructor,
-        ned_pipeline_constructor: NedPipelineConstructor,
-        in_memory_grid: Grid,
-        archive_storage: IngestArchiveStorage,
-        feature_planner: GriddedFeatureCollectionPlanner,
-        profile_id: str,
-    ) -> None:
-        """Initialize the factory with dependencies shared by candidate pipelines."""
-        self.gee_pipeline_constructor = gee_pipeline_constructor
-        self.ned_pipeline_constructor = ned_pipeline_constructor
-        self.in_memory_grid = in_memory_grid
-        self.archive_storage = archive_storage
-        self.feature_planner = feature_planner
-        self.profile_id = profile_id
-
-    def build(self, month: Arrow) -> list[ExportPipeline]:
-        """Build constraining monthly processors for one exact candidate month."""
-        candidate_config = TemporalConfig(start_date=month, end_date=month)
-        processors = define_pipelines(
-            gee_pipeline_constructor=self.gee_pipeline_constructor,
-            ned_pipeline_constructor=self.ned_pipeline_constructor,
-            pm25_pipeline_constructor=None,
-            in_memory_grid=self.in_memory_grid,
-            archive_storage=self.archive_storage,
-            feature_planner=self.feature_planner,
-            temporal_config=candidate_config,
-            profile_id=self.profile_id,
-            include_non_monthly=False,
-        )
-        candidate_id = month.format("YYYY-MM")
-        return [
-            processor
-            for processor in processors
-            if processor.get_config_metadata().hive_path.metadata.get("month") == candidate_id
-            and not processor.get_config_metadata().allows_missing_data
-            and processor.get_config_metadata().constrains_end_month
-        ]

@@ -16,6 +16,7 @@ from pm25ml.collectors.export_pipeline import (
 from pm25ml.collectors.grid import Grid
 from pm25ml.collectors.pm25.data_source import CreaMeasurementsApiDataSource
 from pm25ml.logging import logger
+from pm25ml.setup.date_params import TemporalConfig
 
 
 class Pm25MeasurementFilterMarker(ABC):
@@ -50,6 +51,7 @@ class Pm25MeasurementsPipeline(ExportPipeline):
         filters: list[Pm25MeasurementFilterMarker],
         result_subpath: str,
         start_date: Arrow,
+        temporal_config: TemporalConfig,
     ) -> None:
         """Initialize the pipeline."""
         self.in_memory_grid = in_memory_grid
@@ -58,6 +60,7 @@ class Pm25MeasurementsPipeline(ExportPipeline):
         self.filters = filters
         self.result_subpath = result_subpath
         self.start_date = start_date
+        self.temporal_config = temporal_config
 
     def upload(self) -> None:
         """Upload the processed data to the archive storage."""
@@ -113,7 +116,7 @@ class Pm25MeasurementsPipeline(ExportPipeline):
             "grid_id",
         )
 
-        station_stats_df = self.crea_ds.fetch_station_stats()
+        station_stats_df = self.crea_ds.fetch_station_stats(self.temporal_config)
 
         return measurement_df.join(
             station_to_grid_ids_df,
@@ -251,6 +254,7 @@ class Pm25MeasurementsPipelineConstructor:
         self,
         result_subpath: str,
         month: Arrow,
+        temporal_config: TemporalConfig,
     ) -> Pm25MeasurementsPipeline:
         """
         Construct a CreaMeasurementsPipeline with the given parameters.
@@ -266,4 +270,5 @@ class Pm25MeasurementsPipelineConstructor:
             filters=self.filters,
             result_subpath=result_subpath,
             start_date=month,
+            temporal_config=temporal_config,
         )

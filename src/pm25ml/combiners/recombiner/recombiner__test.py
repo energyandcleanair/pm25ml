@@ -102,14 +102,17 @@ def in_memory_combined_storage():
 
 
 @pytest.fixture
-def recombiner(in_memory_combined_storage):
-    temporal_config = TemporalConfig(
+def temporal_config():
+    return TemporalConfig(
         start_date=Arrow(2023, 1, 1),
         end_date=Arrow(2023, 2, 1),
     )
+
+
+@pytest.fixture
+def recombiner(in_memory_combined_storage):
     return Recombiner(
         combined_storage=in_memory_combined_storage,
-        temporal_config=temporal_config,
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
         max_workers=4,
         n_grid_cells=3,
@@ -211,8 +214,14 @@ def mock_combined_storage_with_overlapping_columns(in_memory_combined_storage):
 
 
 @pytest.mark.usefixtures("mock_combined_storage_with_data")
-def test__recombine__valid_input__combines_data(recombiner, in_memory_combined_storage):
-    recombiner.recombine([INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT], overwrite_columns=True)
+def test__recombine__valid_input__combines_data(
+    recombiner, in_memory_combined_storage, temporal_config
+):
+    recombiner.recombine(
+        [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT],
+        temporal_config,
+        overwrite_columns=True,
+    )
 
     # Validate January 2023
     result_jan = in_memory_combined_storage.read_dataframe(
@@ -240,16 +249,18 @@ def test__recombine__valid_input__combines_data(recombiner, in_memory_combined_s
 
 
 @pytest.mark.usefixtures("mock_combined_storage_with_overlapping_columns")
-def test__recombine__shared_columns_no_overwrite__raises_error(recombiner):
+def test__recombine__shared_columns_no_overwrite__raises_error(recombiner, temporal_config):
     with pytest.raises(ValueError, match="Shared columns detected"):
         recombiner.recombine(
-            [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT], overwrite_columns=False
+            [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT],
+            temporal_config,
+            overwrite_columns=False,
         )
 
 
 @pytest.mark.usefixtures("mock_combined_storage_with_data")
 def test__recombine__existing_dataset_correct_columns__only_updates_one_month(
-    recombiner, in_memory_combined_storage
+    recombiner, in_memory_combined_storage, temporal_config
 ):
     # Pre-existing dataset with correct columns
     existing_jan = _build_monthly_stage_df(
@@ -277,7 +288,11 @@ def test__recombine__existing_dataset_correct_columns__only_updates_one_month(
     )
 
     # Run recombine
-    recombiner.recombine([INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT], overwrite_columns=False)
+    recombiner.recombine(
+        [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT],
+        temporal_config,
+        overwrite_columns=False,
+    )
 
     # Validate that the dataset remains unchanged
     result = in_memory_combined_storage.read_dataframe(
@@ -309,10 +324,6 @@ def test__recombine__when_grid_size_validation_enabled_and_row_count_mismatch__r
 ):
     strict_recombiner = Recombiner(
         combined_storage=in_memory_combined_storage,
-        temporal_config=TemporalConfig(
-            start_date=Arrow(2023, 1, 1),
-            end_date=Arrow(2023, 1, 1),
-        ),
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
         max_workers=1,
         n_grid_cells=1,
@@ -324,6 +335,10 @@ def test__recombine__when_grid_size_validation_enabled_and_row_count_mismatch__r
     ):
         strict_recombiner.recombine(
             [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT],
+            TemporalConfig(
+                start_date=Arrow(2023, 1, 1),
+                end_date=Arrow(2023, 1, 1),
+            ),
             overwrite_columns=True,
         )
 
@@ -351,10 +366,6 @@ def test__recombine__when_grid_size_validation_enabled_and_row_count_matches__pa
 
     strict_recombiner = Recombiner(
         combined_storage=in_memory_combined_storage,
-        temporal_config=TemporalConfig(
-            start_date=Arrow(2023, 1, 1),
-            end_date=Arrow(2023, 1, 1),
-        ),
         output_data_artifact=OUTPUT_DATA_ARTIFACT,
         max_workers=1,
         n_grid_cells=2,
@@ -362,6 +373,10 @@ def test__recombine__when_grid_size_validation_enabled_and_row_count_matches__pa
 
     strict_recombiner.recombine(
         [INPUT_STAGE_1_ARTIFACT, INPUT_STAGE_2_ARTIFACT],
+        TemporalConfig(
+            start_date=Arrow(2023, 1, 1),
+            end_date=Arrow(2023, 1, 1),
+        ),
         overwrite_columns=True,
     )
 

@@ -61,7 +61,7 @@ def test__plan__valid_results__returns_combine_plans():
         start_date=Arrow(2023, 1, 1),
         end_date=Arrow(2023, 2, 1),
     )
-    planner = CombinePlanner(temporal_config, n_grid_cells=N_GRID_CELLS)
+    planner = CombinePlanner(n_grid_cells=N_GRID_CELLS)
 
     results: Collection[UploadResult] = [
         UploadResult(
@@ -120,7 +120,7 @@ def test__plan__valid_results__returns_combine_plans():
         ),
     ]
 
-    plans = list(planner.plan(results))
+    plans = list(planner.plan(results, temporal_config))
 
     assert_that(plans).contains_only(
         *[
@@ -173,11 +173,11 @@ def test__plan__empty_results__returns_empty_plans():
         start_date=Arrow(2023, 1, 1),
         end_date=Arrow(2023, 2, 1),
     )
-    planner = CombinePlanner(temporal_config, n_grid_cells=N_GRID_CELLS)
+    planner = CombinePlanner(n_grid_cells=N_GRID_CELLS)
 
     results: Collection[UploadResult] = []
 
-    plans = list(planner.plan(results))
+    plans = list(planner.plan(results, temporal_config))
 
     assert_that(plans).contains_only(
         *[
@@ -202,7 +202,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
         start_date=Arrow(2023, 1, 1),
         end_date=Arrow(2023, 2, 1),
     )
-    planner = CombinePlanner(temporal_config, n_grid_cells=N_GRID_CELLS)
+    planner = CombinePlanner(n_grid_cells=N_GRID_CELLS)
 
     results: Collection[UploadResult] = [
         UploadResult(
@@ -297,7 +297,7 @@ def test__plan__missing_yearly_dataset__returns_last_previously_available():
         ),
     ]
 
-    plans = list(planner.plan(results))
+    plans = list(planner.plan(results, temporal_config))
 
     assert_that(plans).contains_only(
         *[

@@ -65,20 +65,16 @@ class CombinePlan:
 class CombinePlanner:
     """Planner for combining data for multiple months."""
 
-    def __init__(self, temporal_config: TemporalConfig, n_grid_cells: int) -> None:
-        """
-        Initialize the CombinePlanner.
-
-        :param months: A collection of Arrow objects representing the months to combine.
-        """
-        self.months = temporal_config.months
+    def __init__(self, n_grid_cells: int) -> None:
+        """Initialize the planner with the grid size used for row validation."""
         self.n_grid_cells = n_grid_cells
 
     def plan(
         self,
         results: Collection[UploadResult],
+        temporal_config: TemporalConfig,
     ) -> Collection[CombinePlan]:
-        """Choose what to combine for each month."""
+        """Choose what to combine for each runtime month."""
         all_id_columns = {
             column for result in results for column in result.pipeline_config.id_columns
         }
@@ -98,7 +94,7 @@ class CombinePlanner:
                 expected_columns=all_expected_columns,
                 n_grid_cells=self.n_grid_cells,
             )
-            for month in self.months
+            for month in temporal_config.months
         ]
 
     def _list_paths_to_merge(

@@ -17,10 +17,8 @@ from ee.ee_exception import EEException
 from ee.featurecollection import FeatureCollection
 
 from pm25ml.logging import logger
-from pm25ml.setup.dependency_injection import (
-    Pm25mlContainer,
-    init_dependencies_from_env,
-)
+from pm25ml.setup.dependency_injection import initialize_gee
+from pm25ml.setup.settings import PreflightSettings
 
 if TYPE_CHECKING:
     from fsspec import AbstractFileSystem
@@ -200,22 +198,23 @@ def _build_local_shapefile_zip_path(profile_id: str) -> Path:
     return Path(os.getenv("GRID_SHAPEFILE_ZIP_PATH", str(local_default)))
 
 
-def _main(container: Pm25mlContainer) -> None:
-    # Ensure GEE auth/init resource has been created before EE API calls.
-    _ = container.gee_auth()
-
-    profile_id = container.config.profile.id()
+def _main(settings: PreflightSettings, gcs_filesystem: AbstractFileSystem) -> None:
+    """Ensure the configured grid exists using only preflight dependencies."""
+    profile_id = settings.profile_id
     config = GridAssetConfig(
         profile_id=profile_id,
-        grid_asset_path=container.config.gcp.gee.grid_asset_path(),
-        expected_grid_cell_count=container.config.profile.grid_cell_count(),
+        grid_asset_path=settings.grid_asset_path,
+        expected_grid_cell_count=settings.grid_cell_count,
         local_shapefile_zip=_build_local_shapefile_zip_path(profile_id),
-        gee_staging_bucket_name=container.config.gcp.gee_staging_bucket(),
+        gee_staging_bucket_name=settings.gee_staging_bucket,
         upload_gcs_uri=os.getenv("GEE_GRID_UPLOAD_GCS_URI"),
     )
-    _ensure_grid_asset(config, container.gcs_filesystem())
+    _ensure_grid_asset(config, gcs_filesystem)
 
 
 if __name__ == "__main__":
-    container = init_dependencies_from_env(end_month_mode="none")
-    _main(container)
+    from gcsfs import GCSFileSystem
+
+    preflight_settings = PreflightSettings.from_env()
+    initialize_gee(preflight_settings.gcp_project)
+    _main(preflight_settings, GCSFileSystem())

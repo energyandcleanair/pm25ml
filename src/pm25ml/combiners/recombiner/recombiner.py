@@ -22,18 +22,16 @@ class Recombiner:
         combined_storage (CombinedStorage): The storage where the combined results will be stored.
         output_data_artifact (DataArtifactRef): The data artifact reference for the output combined
           dataset.
-        months (Collection[Arrow]): The months to recombine.
         max_workers (int): The maximum number of worker threads to use for parallel processing.
         n_grid_cells (int): The expected number of grid cells in the combined dataset.
         force_recombine (bool): Whether to force recombination even if not needed.
 
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         combined_storage: CombinedStorage,
-        temporal_config: TemporalConfig,
         output_data_artifact: DataArtifactRef,
         max_workers: int,
         n_grid_cells: int,
@@ -43,7 +41,6 @@ class Recombiner:
         Initialize the Recombiner with a storage for combined datasets.
 
         :param combined_storage: The storage where the combined results will be stored.
-        :param temporal_config: The temporal configuration containing the months to recombine.
         :param output_data_artifact: The data artifact reference for the output combined dataset.
         :param max_workers: The maximum number of worker threads to use for parallel processing.
         :param n_grid_cells: The expected number of grid cells in the combined dataset.
@@ -51,7 +48,6 @@ class Recombiner:
         """
         self.combined_storage = combined_storage
         self.output_data_artifact = output_data_artifact
-        self.months = temporal_config.months
         self.max_workers = max_workers
         self.n_grid_cells = n_grid_cells
         self.force_recombine = force_recombine
@@ -59,6 +55,7 @@ class Recombiner:
     def recombine(
         self,
         stages: Collection[DataArtifactRef],
+        temporal_config: TemporalConfig,
         *,
         overwrite_columns: bool = False,
     ) -> None:
@@ -66,12 +63,14 @@ class Recombiner:
         Recombine datasets from multiple stages and months into a single combined dataset.
 
         :param stages: The stages to recombine.
+        :param temporal_config: The runtime month range to recombine.
         :param overwrite_columns: Whether to overwrite shared columns or raise an error. Overwrites
         with the data in the rightmost dataframe.
         :raises ValueError: If shared columns are detected and overwrite_columns is False.
         """
         filtered_months = self._filter_months_to_update(
             stages=stages,
+            months=temporal_config.months,
         )
 
         self._process_in_parallel(
@@ -88,14 +87,15 @@ class Recombiner:
     def _filter_months_to_update(
         self,
         stages: Collection[DataArtifactRef],
+        months: Collection[Arrow],
     ) -> Collection[Arrow]:
         if self.force_recombine:
-            return self.months
+            return months
 
         with ThreadPoolExecutor() as executor:
             results = executor.map(
                 lambda month: (month, self._needs_recombining(month, stages)),
-                self.months,
+                months,
             )
         return [month for month, needs_recombining in results if needs_recombining]
 

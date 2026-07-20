@@ -31,21 +31,19 @@ class SpatialTemporalImputationSampler:
     def __init__(
         self,
         combined_storage: CombinedStorage,
-        temporal_config: TemporalConfig,
         imputation_sampler_definition: ImputationSamplerDefinition,
         input_data_artifact: DataArtifactRef,
         output_data_artifact: DataArtifactRef,
     ) -> None:
         """Initialize the ImputationSampler."""
         self.combined_storage = combined_storage
-        self.temporal_config = temporal_config
         self.imputation_sampler_definition = imputation_sampler_definition
         self.input_data_artifact = input_data_artifact
         self.output_data_artifact = output_data_artifact
 
-    def sample(self) -> None:
+    def sample(self, temporal_config: TemporalConfig) -> None:
         """Sample the data for a given column to impute."""
-        months = self.temporal_config.month_ids
+        months = temporal_config.month_ids
 
         with ThreadPoolExecutor(max_workers=8) as executor:
             futures = [

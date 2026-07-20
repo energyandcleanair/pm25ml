@@ -102,7 +102,6 @@ def test__imputation_sampler__process_month__correct_sampling(
     # Create sampler
     sampler = SpatialTemporalImputationSampler(
         combined_storage=combined_storage,
-        temporal_config=temporal_config_one_month,
         imputation_sampler_definition=ImputationSamplerDefinition(
             value_column="col_1",
             model_name="mean",
@@ -113,7 +112,7 @@ def test__imputation_sampler__process_month__correct_sampling(
     )
 
     # Process a single month
-    sampler.sample()
+    sampler.sample(temporal_config_one_month)
 
     # Read the sampled data
     sampled_data = combined_storage.read_dataframe(
@@ -162,7 +161,6 @@ def test__imputation_sampler__process_month_multiple_grids__correct_sampling(
     # Create sampler
     sampler = SpatialTemporalImputationSampler(
         combined_storage=combined_storage,
-        temporal_config=temporal_config_one_month,
         imputation_sampler_definition=ImputationSamplerDefinition(
             value_column="col_1",
             model_name="mean",
@@ -173,7 +171,7 @@ def test__imputation_sampler__process_month_multiple_grids__correct_sampling(
     )
 
     # Process a single month
-    sampler.sample()
+    sampler.sample(temporal_config_one_month)
 
     # Read the sampled data
     sampled_data = combined_storage.read_dataframe(
@@ -247,7 +245,6 @@ def test__imputation_sampler__process_month_multiple_months(
     # Create sampler
     sampler = SpatialTemporalImputationSampler(
         combined_storage=combined_storage,
-        temporal_config=temporal_config_two_months,
         imputation_sampler_definition=ImputationSamplerDefinition(
             value_column="col_1",
             model_name="mean",
@@ -258,7 +255,7 @@ def test__imputation_sampler__process_month_multiple_months(
     )
 
     # Process the months
-    sampler.sample()
+    sampler.sample(temporal_config_two_months)
 
     # Read the sampled data for January
     sampled_data_jan = combined_storage.read_dataframe(
@@ -296,7 +293,6 @@ def test__imputation_sampler__sampling_twice__returns_stable_sample_set(
 
     sampler = SpatialTemporalImputationSampler(
         combined_storage=combined_storage,
-        temporal_config=temporal_config_one_month,
         imputation_sampler_definition=ImputationSamplerDefinition(
             value_column="col_1",
             model_name="mean",
@@ -306,12 +302,12 @@ def test__imputation_sampler__sampling_twice__returns_stable_sample_set(
         output_data_artifact=RESULT_ARTIFACT,
     )
 
-    sampler.sample()
+    sampler.sample(temporal_config_one_month)
     sampled_data_first = combined_storage.read_dataframe(
         f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
     )
 
-    sampler.sample()
+    sampler.sample(temporal_config_one_month)
     sampled_data_second = combined_storage.read_dataframe(
         f"country={TEST_COUNTRY}/stage={RESULT_ARTIFACT_NAME}/month=2023-01"
     )

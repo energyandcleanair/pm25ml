@@ -9,7 +9,6 @@ from pm25ml.sample.imputation_sampler import (
     ImputationSamplerDefinition,
     SpatialTemporalImputationSampler,
 )
-from pm25ml.setup.date_params import TemporalConfig
 
 
 @dataclass
@@ -21,7 +20,6 @@ class ImputationStep:
 
 def define_samplers(
     combined_storage: CombinedStorage,
-    temporal_config: TemporalConfig,
     imputation_steps: Collection[ImputationStep],
     input_data_artifact: DataArtifactRef,
     output_data_artifact: DataArtifactRef,
@@ -30,7 +28,6 @@ def define_samplers(
     return [
         SpatialTemporalImputationSampler(
             combined_storage=combined_storage,
-            temporal_config=temporal_config,
             imputation_sampler_definition=step.imputation_sampler_definition,
             input_data_artifact=input_data_artifact,
             output_data_artifact=output_data_artifact.for_sub_artifact(

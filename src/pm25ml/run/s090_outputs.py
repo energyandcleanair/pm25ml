@@ -5,12 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import polars as pl
-from dependency_injector.wiring import Provide, inject
 
-from pm25ml.setup.dependency_injection import (
-    Pm25mlContainer,
-    init_dependencies_from_env,
-)
+from pm25ml.setup.dependency_injection import init_dependencies_from_env
+from pm25ml.setup.end_month import load_persisted_temporal_config
+from pm25ml.setup.settings import TemporalConfigRequest
 from pm25ml.training.full_model_pipeline import MODEL_NAME
 
 if TYPE_CHECKING:
@@ -23,18 +21,15 @@ if TYPE_CHECKING:
     from pm25ml.training.model_storage import ModelStorage
 
 
-@inject
 def _main(  # noqa: PLR0913
-    final_data_artifact: DataArtifactRef = Provide[
-        Pm25mlContainer.data_artifacts_container.final_prediction
-    ],
-    combined_storage: CombinedStorage = Provide[Pm25mlContainer.combined_storage],
-    temporal_config: TemporalConfig = Provide[Pm25mlContainer.temporal_config],
-    grid: Grid = Provide[Pm25mlContainer.in_memory_grid],
-    model_storage: ModelStorage = Provide[Pm25mlContainer.model_store],
-    model_run_ref: str = Provide[Pm25mlContainer.model_run_ref],
-    final_result_writers: list[FinalResultWriter] = Provide[Pm25mlContainer.final_result_writers],
-    final_stats_writers: list[FinalStatsWriter] = Provide[Pm25mlContainer.final_stats_writers],
+    final_data_artifact: DataArtifactRef,
+    combined_storage: CombinedStorage,
+    temporal_config: TemporalConfig,
+    grid: Grid,
+    model_storage: ModelStorage,
+    model_run_ref: str,
+    final_result_writers: list[FinalResultWriter],
+    final_stats_writers: list[FinalStatsWriter],
 ) -> None:
     data_from_storage = (
         combined_storage.scan_stage(final_data_artifact.stage)
@@ -65,5 +60,17 @@ def _main(  # noqa: PLR0913
 
 if __name__ == "__main__":
     container = init_dependencies_from_env()
-    container.wire(modules=[__name__])
-    _main()
+    temporal_config = load_persisted_temporal_config(
+        TemporalConfigRequest.from_env(),
+        container.end_month_store(),
+    )
+    _main(
+        final_data_artifact=container.data_artifacts().final_prediction,
+        combined_storage=container.combined_storage(),
+        temporal_config=temporal_config,
+        grid=container.in_memory_grid(),
+        model_storage=container.model_store(),
+        model_run_ref=container.model_run_ref(),
+        final_result_writers=container.final_result_writers(),
+        final_stats_writers=container.final_stats_writers(),
+    )

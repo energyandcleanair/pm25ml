@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pm25ml.logging import logger
 from pm25ml.setup.date_params import TemporalConfig
-from pm25ml.setup.end_month import EndMonthStore, StaleDataError
+from pm25ml.setup.end_month import EndMonthStore, StaleDataError, latest_completed_month
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection
@@ -16,26 +15,7 @@ if TYPE_CHECKING:
 
     from pm25ml.collectors.collector import RawDataCollector, UploadResult
     from pm25ml.collectors.export_pipeline import ExportPipeline
-    from pm25ml.setup.end_month import EndMonthSource
-    from pm25ml.setup.pipelines import EndMonthCandidatePipelineFactory
-
-
-@dataclass(frozen=True)
-class EndMonthResolution:
-    """An immutable temporal configuration with optional deferred persistence."""
-
-    temporal_config: TemporalConfig
-    store: EndMonthStore | None = None
-
-    def persist(self) -> None:
-        """Persist newly resolved dates; previously stored resolutions are no-ops."""
-        if self.store is None:
-            return
-        self.store.write(self.temporal_config.end_date)
-        logger.info(
-            "Persisted END_MONTH=%s",
-            self.temporal_config.end_date.format("YYYY-MM-DD"),
-        )
+    from pm25ml.setup.settings import TemporalConfigRequest
 
 
 class AutomaticEndMonthSelector:
@@ -58,7 +38,11 @@ class AutomaticEndMonthSelector:
         for lag in range(max_data_lag_months + 1):
             candidate = latest_candidate.shift(months=-lag).floor("month")
             candidate_id = candidate.format("YYYY-MM")
-            candidate_processors = list(candidate_pipeline_factory(candidate))
+            candidate_processors = [
+                processor
+                for processor in candidate_pipeline_factory(candidate)
+                if self._constrains_candidate(processor, candidate_id)
+            ]
             if not candidate_processors:
                 attempted[candidate_id] = ["no required monthly pipelines were configured"]
                 continue
@@ -89,6 +73,15 @@ class AutomaticEndMonthSelector:
         raise StaleDataError(msg)
 
     @staticmethod
+    def _constrains_candidate(processor: ExportPipeline, candidate_id: str) -> bool:
+        config = processor.get_config_metadata()
+        return (
+            config.hive_path.metadata.get("month") == candidate_id
+            and not config.allows_missing_data
+            and config.constrains_end_month
+        )
+
+    @staticmethod
     def _blocking_datasets(results: Collection[UploadResult]) -> list[str]:
         return sorted(
             {
@@ -101,48 +94,43 @@ class AutomaticEndMonthSelector:
 
 
 class EndMonthCoordinator:
-    """Resolve the immutable temporal configuration for the discovery stage."""
+    """Resolve and persist the immutable temporal configuration for collection."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         collector: RawDataCollector,
-        candidate_pipeline_factory: EndMonthCandidatePipelineFactory,
-        start_date: Arrow,
-        configured_end_month: Arrow,
-        source: EndMonthSource,
-        max_data_lag_months: int,
         store: EndMonthStore,
     ) -> None:
         """Initialize end-month coordination dependencies."""
         self.selector = AutomaticEndMonthSelector(collector)
-        self.candidate_pipeline_factory = candidate_pipeline_factory
-        self.start_date = start_date
-        self.configured_end_month = configured_end_month
-        self.source = source
-        self.max_data_lag_months = max_data_lag_months
         self.store = store
 
-    def resolve(self) -> EndMonthResolution:
-        """Resolve and return a new immutable temporal configuration."""
-        if self.source != "provisional":
-            return EndMonthResolution(
-                temporal_config=TemporalConfig(
-                    start_date=self.start_date,
-                    end_date=self.configured_end_month,
-                ),
-                store=self.store if self.source == "explicit" else None,
+    def resolve(
+        self,
+        request: TemporalConfigRequest,
+        *,
+        candidate_pipeline_factory: Callable[[Arrow], Collection[ExportPipeline]],
+        now: Arrow | None = None,
+    ) -> TemporalConfig:
+        """Resolve, persist, and return the collection month range."""
+        stored_end_month = self.store.read()
+        if stored_end_month is not None:
+            return TemporalConfig(start_date=request.start_month, end_date=stored_end_month)
+
+        selected_end_month = request.explicit_end_month
+        if selected_end_month is None:
+            selected_end_month = self.selector.select(
+                candidate_pipeline_factory=candidate_pipeline_factory,
+                latest_candidate=latest_completed_month(now=now),
+                max_data_lag_months=request.max_data_lag_months,
             )
 
-        selected_end_month = self.selector.select(
-            candidate_pipeline_factory=self.candidate_pipeline_factory.build,
-            latest_candidate=self.configured_end_month,
-            max_data_lag_months=self.max_data_lag_months,
+        selected_end_month = selected_end_month.floor("month")
+        temporal_config = TemporalConfig(
+            start_date=request.start_month,
+            end_date=selected_end_month,
         )
-        return EndMonthResolution(
-            temporal_config=TemporalConfig(
-                start_date=self.start_date,
-                end_date=selected_end_month,
-            ),
-            store=self.store,
-        )
+        self.store.write(selected_end_month)
+        logger.info("Persisted END_MONTH=%s", selected_end_month.format("YYYY-MM-DD"))
+        return temporal_config

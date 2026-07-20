@@ -21,11 +21,10 @@ class SpatialImputationValidationError(Exception):
 class SpatialImputationManager:
     """Manage the spatial imputation of data using a specified imputer."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         combined_storage: CombinedStorage,
         spatial_imputer: DailySpatialInterpolator,
-        temporal_config: TemporalConfig,
         input_data_artifact: DataArtifactRef,
         output_data_artifact: DataArtifactRef,
         n_grid_cells: int,
@@ -35,21 +34,19 @@ class SpatialImputationManager:
 
         :param combined_storage: The storage where combined data is stored.
         :param spatial_imputer: The imputer used for spatial interpolation.
-        :param temporal_config: The temporal configuration that defines the months to process.
         :param input_data_artifact: The stage to read monthly combined input data from.
         :param output_data_artifact: The stage to write spatially imputed output data to.
         :param n_grid_cells: The expected number of grid cells for validation.
         """
         self.combined_storage = combined_storage
         self.spatial_imputer = spatial_imputer
-        self.months = temporal_config.months
-        self.months_as_ids = [month.format("YYYY-MM") for month in self.months]
         self.input_data_artifact = input_data_artifact
         self.output_data_artifact = output_data_artifact
         self.n_grid_cells = n_grid_cells
 
-    def impute(self) -> None:
+    def impute(self, temporal_config: TemporalConfig) -> None:
         """Perform spatial imputation for each month."""
+        months_as_ids = temporal_config.month_ids
         column_regex = self.spatial_imputer.value_column_regex_selector
 
         logger.info(
@@ -65,10 +62,10 @@ class SpatialImputationManager:
         logger.info(
             "Checking if all expected months are present in the dataset we're going to impute for",
         )
-        self._check_all_months_present(combined_dataset)
+        self._check_all_months_present(combined_dataset, months_as_ids)
 
         expected_columns = combined_dataset.collect_schema().names()
-        months_to_upload = self._identify_months_to_upload(expected_columns)
+        months_to_upload = self._identify_months_to_upload(expected_columns, months_as_ids)
 
         logger.info(
             f"Found {len(months_to_upload)} months to process for spatial imputation.",
@@ -137,7 +134,11 @@ class SpatialImputationManager:
 
             deque(results)
 
-    def _identify_months_to_upload(self, expected_columns: Collection[str]) -> Collection[str]:
+    def _identify_months_to_upload(
+        self,
+        expected_columns: Collection[str],
+        months_as_ids: Collection[str],
+    ) -> Collection[str]:
         with ThreadPoolExecutor() as executor:
             months_to_upload = list(
                 executor.map(
@@ -147,7 +148,7 @@ class SpatialImputationManager:
                         expected_columns=expected_columns,
                     )
                     else None,
-                    self.months_as_ids,
+                    months_as_ids,
                 ),
             )
         return [month for month in months_to_upload if month is not None]
@@ -207,12 +208,16 @@ class SpatialImputationManager:
             )
             raise SpatialImputationValidationError(msg)
 
-    def _check_all_months_present(self, ds: pl.LazyFrame) -> None:
+    def _check_all_months_present(
+        self,
+        ds: pl.LazyFrame,
+        months_as_ids: Collection[str],
+    ) -> None:
         available_to_process = (
             ds.select("month").unique().collect(engine="streaming").to_series().sort()
         )
 
-        missing_months = set(self.months_as_ids) - set(available_to_process)
+        missing_months = set(months_as_ids) - set(available_to_process)
         if missing_months:
             missing_months_text = ", ".join(sorted(missing_months))
             msg = f"The following months are not present in the dataset: {missing_months_text}."

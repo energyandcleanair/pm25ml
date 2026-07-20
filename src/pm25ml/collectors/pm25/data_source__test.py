@@ -40,23 +40,27 @@ def test__fetch_station_stats__aggregates_quantiles_and_caches(
         return_value=measurements_df,
     ) as mock_read_csvs:
         ds = CreaMeasurementsApiDataSource(
-            temporal_config=temporal_config_two_months,
             source_ids=("cpcb",),
         )
 
-        first = ds.fetch_station_stats()
-        second = ds.fetch_station_stats()  # Should use cache
+        first = ds.fetch_station_stats(temporal_config_two_months)
+        second = ds.fetch_station_stats(temporal_config_two_months)  # Should use cache
+        (first_paths,) = mock_read_csvs.call_args.args
+        third = ds.fetch_station_stats(
+            TemporalConfig(
+                start_date=arrow.get("2023-03-01"),
+                end_date=arrow.get("2023-03-31"),
+            ),
+        )
 
         # Caching assertions
-        assert mock_read_csvs.call_count == 1, (
-            "monthly CSVs should be fetched only once due to caching"
-        )
+        assert mock_read_csvs.call_count == 2
         assert first is second, "Cached DataFrame instance should be reused"
+        assert first is not third, "Different temporal ranges should use different cache entries"
 
         # Ensure URLs were generated for each month in the temporal config
-        (paths_arg,) = mock_read_csvs.call_args.args
-        assert isinstance(paths_arg, list)
-        assert len(paths_arg) == len(temporal_config_two_months.months)
+        assert isinstance(first_paths, list)
+        assert len(first_paths) == len(temporal_config_two_months.months)
 
         # Validate aggregation results (order not guaranteed -> sort)
         actual = first.sort("location_id")
@@ -92,7 +96,6 @@ def test__fetch_stations__parses_coordinates_and_caches(temporal_config_two_mont
         return_value=stations_df,
     ) as mock_read_csv:
         ds = CreaMeasurementsApiDataSource(
-            temporal_config=temporal_config_two_months,
             source_ids=("cpcb",),
         )
 
@@ -130,7 +133,6 @@ def test__fetch_station_data__casts_types(temporal_config_two_months):
         return_value=measurements_df,
     ):
         ds = CreaMeasurementsApiDataSource(
-            temporal_config=temporal_config_two_months,
             source_ids=("cpcb",),
         )
 
@@ -159,7 +161,6 @@ def test__read_csv_from_url__uses_requests_with_browser_like_headers(
         mock_get.return_value = mock_response
 
         ds = CreaMeasurementsApiDataSource(
-            temporal_config=temporal_config_two_months,
             source_ids=("cpcb",),
         )
 

@@ -1,70 +1,37 @@
 """Tests for pipeline construction helpers."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import arrow
 
-from pm25ml.collectors.export_pipeline import (
-    ExportPipeline,
-    MissingDataHeuristic,
-    PipelineConfig,
-    PipelineConsumerBehaviour,
-)
-from pm25ml.setup.pipelines import EndMonthCandidatePipelineFactory
+from pm25ml.setup.date_params import TemporalConfig
+from pm25ml.setup.pipelines import define_pipelines
 
 
-def _processor(
-    path: str,
-    *,
-    constrains_end_month: bool = True,
-    allows_missing: bool = False,
-) -> Mock:
-    processor = Mock(spec=ExportPipeline)
-    processor.get_config_metadata.return_value = PipelineConfig(
-        result_subpath=path,
-        id_columns={"grid_id"},
-        value_column_type_map={},
-        expected_rows=0,
-        constrains_end_month=constrains_end_month,
-        consumer_behaviour=PipelineConsumerBehaviour(
-            missing_data_heuristic=(
-                MissingDataHeuristic.COPY_LATEST_AVAILABLE_BEFORE
-                if allows_missing
-                else MissingDataHeuristic.FAIL
-            ),
-        ),
+def test__define_pipelines__always_includes_pm25_for_monthly_ranges() -> None:
+    pm25_pipeline = Mock()
+    pm25_pipeline_constructor = Mock()
+    pm25_pipeline_constructor.construct.return_value = pm25_pipeline
+    temporal_config = TemporalConfig(
+        start_date=arrow.get("2026-05-01"),
+        end_date=arrow.get("2026-05-01"),
     )
-    return processor
 
-
-def test__candidate_pipeline_factory__builds_only_constraining_exact_month() -> None:
-    required = _processor("country=india/dataset=required/month=2026-05")
-    wrong_month = _processor("country=india/dataset=required/month=2026-04")
-    nonconstraining = _processor(
-        "country=india/dataset=pm25/month=2026-05",
-        constrains_end_month=False,
-    )
-    allowed_missing = _processor(
-        "country=india/dataset=optional/month=2026-05",
-        allows_missing=True,
-    )
-    factory = EndMonthCandidatePipelineFactory(
+    pipelines = define_pipelines(
         gee_pipeline_constructor=Mock(),
         ned_pipeline_constructor=Mock(),
+        pm25_pipeline_constructor=pm25_pipeline_constructor,
         in_memory_grid=Mock(),
         archive_storage=Mock(),
         feature_planner=Mock(),
+        temporal_config=temporal_config,
         profile_id="india",
+        include_non_monthly=False,
     )
 
-    with patch(
-        "pm25ml.setup.pipelines.define_pipelines",
-        return_value=[required, wrong_month, nonconstraining, allowed_missing],
-    ) as define:
-        result = factory.build(arrow.get("2026-05-01"))
-
-    assert result == [required]
-    assert define.call_args.kwargs["pm25_pipeline_constructor"] is None
-    assert define.call_args.kwargs["include_non_monthly"] is False
-    assert define.call_args.kwargs["temporal_config"].start_date == arrow.get("2026-05-01")
-    assert define.call_args.kwargs["temporal_config"].end_date == arrow.get("2026-05-01")
+    pm25_pipeline_constructor.construct.assert_called_once_with(
+        result_subpath="country=india/dataset=pm25/month=2026-05",
+        month=arrow.get("2026-05-01"),
+        temporal_config=temporal_config,
+    )
+    assert pm25_pipeline in pipelines
