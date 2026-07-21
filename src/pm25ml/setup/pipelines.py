@@ -192,9 +192,9 @@ def define_pipelines(  # noqa: PLR0913
             ),
             ned_pipeline_constructor.construct(
                 dataset_descriptor=NedDatasetDescriptor(
-                    # https://cmr.earthdata.nasa.gov/searCch/concepts/C1266136111-GES_DISC.html
+                    # https://cmr.earthdata.nasa.gov/search/concepts/C3333493715-GES_DISC.html
                     dataset_name="OMNO2d",
-                    dataset_version="003",
+                    dataset_version="004",
                     start_date=month_start,
                     end_date=month_end,
                     filter_bounds=in_memory_grid.expanded_bounds,
@@ -206,7 +206,9 @@ def define_pipelines(  # noqa: PLR0913
                 ),
                 dataset_reader=Omno2dReader(),
                 dataset_retriever=RawEarthAccessDataRetriever(),
-                result_subpath=f"country={profile_id}/dataset=omi_no2/month={month_short}",
+                result_subpath=(
+                    f"country={profile_id}/dataset=omi_no2/version=004/month={month_short}"
+                ),
             ),
             pm25_pipeline_constructor.construct(
                 result_subpath=f"country={profile_id}/dataset=pm25/month={month_short}",

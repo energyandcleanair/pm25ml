@@ -1,4 +1,4 @@
-"""Data reader for OMI NO2 data."""
+"""Data reader for OMI NO2 Collection 4 (OMNO2d v004) data."""
 
 from ast import literal_eval
 from typing import IO, TYPE_CHECKING, cast
@@ -18,16 +18,16 @@ if TYPE_CHECKING:
 
 class Omno2dReader(NedDataReader):
     """
-    Data reader for OMI NO2 data.
+    Data reader for OMI NO2 Collection 4 (OMNO2d v004) data.
 
-    This class reads OMI NO2 data from an HDF5 file and extracts the relevant data
-    for a given date range and geographical bounds.
+    This class reads OMNO2d v004 data from an HDF5 file and extracts the relevant
+    data for a given date range and geographical bounds.
     """
 
     GRID_NAME = "ColumnAmountNO2"
 
     def __init__(self) -> None:
-        """Initialize the OMI data reader."""
+        """Initialize the OMNO2d v004 data reader."""
         super().__init__()
 
     def extract_data(

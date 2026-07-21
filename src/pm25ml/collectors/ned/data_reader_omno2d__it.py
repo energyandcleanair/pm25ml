@@ -20,7 +20,7 @@ def example_file_path() -> Path:
     return (
         Path(__file__).parent
         / "data_reader_omno2d__it_assets"
-        / "OMI-Aura_L3-OMNO2d_2023m0111_v003-2023m0223t191034.he5"
+        / "OMI-Aura_L3-OMNO2d_2023m0111_v004-2025m1103t113244.he5"
     )
 
 
@@ -30,8 +30,8 @@ def dataset_descriptor() -> NedDatasetDescriptor:
     Fixture to provide a dataset descriptor for the test.
     """
     return NedDatasetDescriptor(
-        dataset_name="OMI_NO2",
-        dataset_version="v1.0",
+        dataset_name="OMNO2d",
+        dataset_version="004",
         start_date=arrow.get("2023-01-01"),
         end_date=arrow.get("2023-01-01"),
         filter_bounds=(Lon(70.0), Lat(10.0), Lon(90.0), Lat(30.0)),
@@ -47,8 +47,8 @@ def dataset_descriptor_trop() -> NedDatasetDescriptor:
     Fixture to provide a dataset descriptor for the test.
     """
     return NedDatasetDescriptor(
-        dataset_name="OMI_NO2",
-        dataset_version="v1.0",
+        dataset_name="OMNO2d",
+        dataset_version="004",
         start_date=arrow.get("2023-01-01"),
         end_date=arrow.get("2023-01-01"),
         filter_bounds=(Lon(70.0), Lat(10.0), Lon(90.0), Lat(30.0)),
