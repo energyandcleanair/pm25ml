@@ -29,7 +29,7 @@ def release_values(version: str) -> dict[str, str]:
     """Values for the published X.Y.Z tag deploy."""
     return {
         "PM25ML_JOB_NAME": "pm25ml-release",
-        "PM25ML_IMAGE_TAG": version,
+        "PM25ML_IMAGE_TAG": f"v{version}",
         "PM25ML_BUNDLE_SOURCE": "release",
         "PM25ML_MODEL_BUNDLE": f"mb-{version}",
     }

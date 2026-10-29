@@ -1,7 +1,7 @@
 # Template rendered by .ci/scripts/render_release_workflow.py
 # Tokens below are __NAME__ forms of:
 #   PM25ML_JOB_NAME   commit: pm25ml     release: pm25ml-release
-#   PM25ML_IMAGE_TAG  commit: latest     release: X.Y.Z
+#   PM25ML_IMAGE_TAG  commit: latest     release: vX.Y.Z
 apiVersion: run.googleapis.com/v1
 kind: Job
 metadata:

@@ -61,6 +61,6 @@ def test__infra_templates__render_commit_and_release_from_yaml_tokens() -> None:
     assert "PM25ML_BUNDLE_SOURCE: release" in release_workflow
     assert 'MODEL_BUNDLE: "mb-1.2.0"' in release_workflow
     assert "jobs/pm25ml-release" in release_workflow
-    assert "pm25ml/pm25ml:1.2.0" in release_workflow
+    assert "pm25ml/pm25ml:v1.2.0" in release_workflow
     assert "name: pm25ml-release" in release_job
     assert "pm25ml-feature-" in release_workflow

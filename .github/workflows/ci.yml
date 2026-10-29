@@ -268,7 +268,7 @@ jobs:
         run: |
           gcloud container images add-tag \
           ${{ env.IMAGE_TAG_BASE }}:${{ github.sha }} \
-          ${{ env.IMAGE_TAG_BASE }}:${{ github.ref_name }}
+          ${{ env.IMAGE_TAG_BASE }}:v${{ github.ref_name }}
       - name: Render release workflow and job
         run: |
           python3 .ci/scripts/render_release_workflow.py release \

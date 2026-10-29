@@ -175,7 +175,7 @@ compute. We aim to only provision compute on-demand to avoid high compute costs.
 Cloud runs use two Workflows deployments rendered from `infra/workflow.yaml`:
 
 - `pm25ml-orchestrator` follows `pm25ml:latest` and records `mb-local-<commit sha>`.
-- `pm25ml-orchestrator-release` follows the published `X.Y.Z` tag and records `mb-X.Y.Z`.
+- `pm25ml-orchestrator-release` follows the image `pm25ml:vX.Y.Z` and records `mb-X.Y.Z`.
 
 Operators do not pass a model bundle. Optional `model_run_ref` resumes a production run
 or overwrites a commit/local run. The filename schema is in `docs/VERSIONING.md`.
