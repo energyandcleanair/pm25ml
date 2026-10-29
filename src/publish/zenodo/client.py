@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 CONCEPT_RECORD_ID = "17573562"
 DEFAULT_API_URL = "https://zenodo.org/api"
+RDM_JSON = "application/vnd.inveniordm.v1+json"
 _RETRYABLE_STATUS = frozenset({500, 502, 503, 504})
 _REQUEST_ATTEMPTS = 4
 
@@ -141,8 +142,29 @@ class ZenodoClient:
         payload = dict(metadata or {})
         payload.pop("doi", None)
         payload.pop("prereserve_doi", None)
+        additional = payload.pop("additional_descriptions", None)
         payload["version"] = version
         self._put(f"/deposit/depositions/{record_id}", json={"metadata": payload})
+        if additional is not None:
+            self._put_rdm_additional_descriptions(record_id, list(additional))
+
+    def _put_rdm_additional_descriptions(
+        self,
+        record_id: str,
+        additional: list[Any],
+    ) -> None:
+        draft = self._request("GET", f"/records/{record_id}/draft", accept=RDM_JSON)
+        if not isinstance(draft, dict):
+            msg = f"Zenodo returned a non-object payload for GET /records/{record_id}/draft."
+            raise ZenodoError(msg)
+        rdm_metadata = dict(draft.get("metadata") or {})
+        rdm_metadata["additional_descriptions"] = additional
+        self._request(
+            "PUT",
+            f"/records/{record_id}/draft",
+            json={"metadata": rdm_metadata},
+            accept=RDM_JSON,
+        )
 
     def _writable_deposit_metadata(self, record_id: str) -> dict[str, Any]:
         deposit = self._get(f"/deposit/depositions/{record_id}")
@@ -196,10 +218,13 @@ class ZenodoClient:
         json: object | None = None,
         data: object | None = None,
         content_type: str | None = None,
+        accept: str | None = None,
         absolute: bool = False,
     ) -> object:
         url = path if absolute else f"{self._api_url}{path}"
         headers = {"Authorization": f"Bearer {self._token}"}
+        if accept is not None:
+            headers["Accept"] = accept
         if content_type is not None:
             headers["Content-Type"] = content_type
         elif json is not None:

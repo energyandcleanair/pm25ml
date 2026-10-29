@@ -1,6 +1,7 @@
 # Zenodo deposit metadata applied to each new unpublished version.
-# Description comes from docs/dataset.md. Additional notes come from docs/versioning.md.
-# docs/disclaimer.md is appended to both. Version comes from the model-run ref.
+# Description comes from docs/dataset.md.
+# Technical info is docs/versioning.md; Notes is docs/disclaimer.md
+# (Zenodo additional_descriptions). Version comes from the model-run ref.
 # publication_date is set at release.
 
 title: "South Asia PM2.5 map: India | Data"

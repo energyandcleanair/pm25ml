@@ -164,11 +164,11 @@ poetry install --with publish
 Prepare uploads a versioned map prefix, creates an unpublished Zenodo version, and opens a
 website pull request. This does **not** switch the live map index. The new Zenodo version is
 filled from version-controlled docs: description from [`docs/dataset.md`](docs/dataset.md),
-additional notes from [`docs/versioning.md`](docs/versioning.md), the map disclaimer from
-[`docs/disclaimer.md`](docs/disclaimer.md) on both of those fields, and creators, license,
-references, and other deposit fields from [`docs/zenodo.yaml`](docs/zenodo.yaml). Those
-Markdown files are not attached as extra files. Previously published Zenodo versions are left
-unchanged.
+Technical info from [`docs/versioning.md`](docs/versioning.md), Notes from
+[`docs/disclaimer.md`](docs/disclaimer.md), and creators, license, references, and other
+deposit fields from [`docs/zenodo.yaml`](docs/zenodo.yaml). Technical info and Notes are
+Zenodo additional-description sections, not extra files. Previously published Zenodo
+versions are left unchanged.
 
 ```
 PYTHONPATH=src poetry run python -m publish prepare rel-YYYY-MM-rT_s-X.Y_mb-X.Y.Z

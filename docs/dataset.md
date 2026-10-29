@@ -1,5 +1,3 @@
-# South Asia PM2.5 map: India | Data
-
 High-resolution surface PM2.5 concentration for India, built from satellite products, surface
 monitors, and machine learning pipelines. This dataset is produced using a reimplementation of
 *[Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air
@@ -18,7 +16,7 @@ concentrations (µg/m³) at 10 km resolution over India. It includes `time`, `x`
 with the primary variable `pm25(time, y, x)`. The data uses the WGS 84 / India NSF Lambert
 Conformal Conic projection (EPSG: 7755) to define spatial coordinates.
 
-Filenames and the meaning of each version field are described in the additional notes on this record.
+Filenames and the meaning of each version field are described in Technical info on this record.
 
 ## Model accuracy
 

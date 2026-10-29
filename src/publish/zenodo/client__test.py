@@ -289,6 +289,60 @@ def test__ensure_draft__description_and_html_files__updates_only_this_draft(
     assert any(url.endswith("/dataset.html/content") for url in uploaded)
 
 
+@responses.activate
+def test__ensure_draft__additional_descriptions__puts_rdm_sections(tmp_path: Path) -> None:
+    netcdf = tmp_path / "a.nc"
+    netcdf.write_bytes(b"nc")
+    additional = [
+        {
+            "description": "<h3>Data versioning</h3>",
+            "type": {"id": "technical-info"},
+            "lang": {"id": "eng"},
+        },
+        {
+            "description": "<h3>Disclaimer</h3>",
+            "type": {"id": "notes"},
+            "lang": {"id": "eng"},
+        },
+    ]
+    responses.get(f"{API}/records/{CONCEPT_RECORD_ID}", json={"id": 111, "links": {}})
+    responses.get(DEPOSITIONS_QUERY, json=[])
+    responses.post(f"{API}/records/111/versions", json={"id": 222})
+    responses.put(f"{API}/deposit/depositions/222", json={"id": 222})
+    responses.get(f"{API}/records/222/draft", json={"id": 222, "metadata": {"title": "Title"}})
+    responses.put(f"{API}/records/222/draft", json={"id": 222})
+    responses.get(f"{API}/records/222/draft/files", json={"entries": []})
+    responses.post(f"{API}/records/222/draft/files", json={})
+    responses.put(f"{API}/records/222/draft/files/a.nc/content", json={})
+    responses.post(f"{API}/records/222/draft/files/a.nc/commit", json={})
+    responses.get(
+        f"{API}/records/222/draft",
+        json={"id": 222, "links": {"self_html": "https://zenodo.org/uploads/222"}},
+    )
+
+    _client().ensure_draft(
+        version=REF,
+        files=(netcdf,),
+        metadata=_metadata(additional_descriptions=additional, description="<p>Dataset</p>"),
+    )
+
+    deposit_put = next(
+        call
+        for call in responses.calls
+        if call.request.method == "PUT" and call.request.url == f"{API}/deposit/depositions/222"
+    )
+    deposit_payload = json.loads(deposit_put.request.body)["metadata"]
+    assert "additional_descriptions" not in deposit_payload
+    rdm_put = next(
+        call
+        for call in responses.calls
+        if call.request.method == "PUT" and call.request.url == f"{API}/records/222/draft"
+    )
+    rdm_payload = json.loads(rdm_put.request.body)["metadata"]
+    assert rdm_payload["additional_descriptions"] == additional
+    assert rdm_payload["title"] == "Title"
+
+
 def test__from_env__missing_token__raises() -> None:
     with pytest.raises(ZenodoError, match="ZENODO_TOKEN"):
         ZenodoClient.from_env(environ={})

@@ -19,7 +19,15 @@ if TYPE_CHECKING:
 
 ZENODO_YAML = DOCS_DIR / "zenodo.yaml"
 _DOC_OWNED_KEYS = frozenset(
-    {"doi", "prereserve_doi", "version", "description", "notes", "publication_date"}
+    {
+        "doi",
+        "prereserve_doi",
+        "version",
+        "description",
+        "notes",
+        "additional_descriptions",
+        "publication_date",
+    }
 )
 _REQUIRED_KEYS = ("title", "upload_type", "access_right", "license", "creators")
 
@@ -33,7 +41,7 @@ def load_deposit_metadata(
     Build deposit metadata from docs in the repo.
 
     ``docs/dataset.md`` is the description, ``docs/versioning.md`` is the
-    additional notes, and ``docs/disclaimer.md`` is appended to both.
+    Technical info additional description, and ``docs/disclaimer.md`` is Notes.
     ``docs/zenodo.yaml`` supplies the remaining fields. Version and
     publication date are not taken from those files.
     """
@@ -48,18 +56,23 @@ def load_deposit_metadata(
         raise ValueError(msg)
 
     metadata = {key: value for key, value in loaded.items() if key not in _DOC_OWNED_KEYS}
-    disclaimer_html = render_markdown_file(docs_dir / DISCLAIMER_MARKDOWN.name)
     metadata["version"] = version
-    metadata["description"] = _join_html(
-        render_markdown_file(docs_dir / DATASET_MARKDOWN.name),
-        disclaimer_html,
-    )
-    metadata["notes"] = _join_html(
-        render_markdown_file(docs_dir / VERSIONING_MARKDOWN.name),
-        disclaimer_html,
-    )
+    metadata["description"] = render_markdown_file(docs_dir / DATASET_MARKDOWN.name)
+    notes_html = render_markdown_file(docs_dir / DISCLAIMER_MARKDOWN.name)
+    metadata["notes"] = notes_html
+    metadata["additional_descriptions"] = [
+        _additional_description(
+            render_markdown_file(docs_dir / VERSIONING_MARKDOWN.name),
+            "technical-info",
+        ),
+        _additional_description(notes_html, "notes"),
+    ]
     return metadata
 
 
-def _join_html(*parts: str) -> str:
-    return "\n".join(part.rstrip() for part in parts if part.strip())
+def _additional_description(html: str, type_id: str) -> dict[str, Any]:
+    return {
+        "description": html,
+        "type": {"id": type_id},
+        "lang": {"id": "eng"},
+    }

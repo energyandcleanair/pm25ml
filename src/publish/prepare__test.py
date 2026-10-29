@@ -61,10 +61,12 @@ def test__prepare__production_ref__writes_manifest_and_calls_clients(
     metadata = zenodo.ensure_draft.call_args.kwargs["metadata"]
     assert metadata["version"] == REF
     assert metadata["title"] == "South Asia PM2.5 map: India | Data"
-    assert "<h1>" in metadata["description"]
-    assert "Disclaimer" in metadata["description"]
-    assert "Data versioning" in metadata["notes"]
+    assert "High-resolution surface PM2.5" in metadata["description"]
+    assert "Disclaimer" not in metadata["description"]
+    assert "Data versioning" not in metadata["description"]
     assert "Disclaimer" in metadata["notes"]
+    types = [item["type"]["id"] for item in metadata["additional_descriptions"]]
+    assert types == ["technical-info", "notes"]
     assert metadata["creators"][0]["name"] == "Rushwood, Panda"
     github.ensure_metadata_pull_request.assert_called_once_with(
         model_run_ref=REF,
