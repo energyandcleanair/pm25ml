@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: $(basename "$0") <version_number>" >&2
+    echo "Error: Expected exactly one argument (version number)" >&2
+    exit 1
+fi
+
+version_number=$1
+
+bucket=crea-pm25ml-project-website-assets
+project=vital-form-455413-p8
+
+gcloud --project $project storage cp gs://$bucket/$version_number/metadata.json gs://$bucket/metadata.json
+gcloud --project $project storage cp gs://$bucket/$version_number/color_scale.json gs://$bucket/color_scale.json

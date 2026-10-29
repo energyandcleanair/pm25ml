@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "202511-indiamap-website-dataassets"
+version = "0.1.0"
+description = "Generating the COG and json files required for the indiamap website to display the PM2.5 data"
+authors = ["rosa <rosa@energyandcleanair.org>"]
+license = "MIT"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+xarray = "^2024.7.0"
+netcdf4 = "^1.7.3"
+crea-graphics = {git = "git@github.com:energyandcleanair/crea_graphics_python.git"}
+rioxarray = "^0.20.0"
+google-cloud-storage = "^3.10.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
