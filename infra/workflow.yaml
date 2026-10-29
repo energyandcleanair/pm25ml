@@ -7,408 +7,433 @@
 main:
   params: [args]
   steps:
-    # Initialize environment and continue-from plumbing
-    - init_env:
-        assign:
-          - profile: ${ map.get(args, "profile") }
-          - india_profile_env:
-              GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_india_10km_shapefile
-              PROFILE_GRID_CELL_COUNT: "33074"
-              PM25_SOURCE_IDS: cpcb
-          - in_bd_profile_env:
-              GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_in-bd_10km_shapefile
-              PROFILE_GRID_CELL_COUNT: "34357"
-              PM25_SOURCE_IDS: cpcb
+    - initialisation:
+        steps:
+          - init_env:
+              assign:
+                - profile: ${ map.get(args, "profile") }
+                - profiles:
+                    india:
+                      GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_india_10km_shapefile
+                      PROFILE_GRID_CELL_COUNT: "33074"
+                      PM25_SOURCE_IDS: cpcb
+                    "in-bd":
+                      GEE_GRID_ASSET_PATH: projects/vital-form-455413-p8/assets/grid_in-bd_10km_shapefile
+                      PROFILE_GRID_CELL_COUNT: "34357"
+                      PM25_SOURCE_IDS: cpcb
+                - stage_index:
+                    preflight: 0
+                    discover: 1
+                    collect_data_and_combine: 2
+                    generate_features: 3
+                    sample: 4
+                    train: 5
+                    impute: 6
+                    full_model_sample: 7
+                    full_model_train: 8
+                    full_model_predict: 9
+                    output_results: 10
 
-    - validate_profile:
-        switch:
-          - condition: ${ profile == null }
-            next: missing_profile
-          - condition: ${ profile == "india" }
-            next: set_india_profile_env
-          - condition: ${ profile == "in-bd" }
-            next: set_in_bd_profile_env
-        next: invalid_profile
+          - validate_profile:
+              switch:
+                - condition: ${ profile == null }
+                  steps:
+                    - missing_profile:
+                        raise: "Missing required workflow arg: profile"
+                - condition: ${ map.get(profiles, profile) == null }
+                  steps:
+                    - invalid_profile:
+                        raise: '${ "Invalid profile value: " + string(profile) + ". Expected one of: india, in-bd" }'
 
-    - missing_profile:
-        raise: "Missing required workflow arg: profile"
+          - set_profile_env:
+              assign:
+                - profile_env: ${ profiles[profile] }
 
-    - invalid_profile:
-        raise: '${ "Invalid profile value: " + string(profile) + ". Expected one of: india, in-bd" }'
+          - build_common_env:
+              assign:
+                - common_env:
+                    GCP_PROJECT: vital-form-455413-p8
+                    PIPELINE_PROFILE: ${profile}
+                    MODEL_RUN_REF: ${ default(map.get(args, "model_run_ref"), "") }
+                    PM25ML_BUNDLE_SOURCE: __PM25ML_BUNDLE_SOURCE__
+                    MODEL_BUNDLE: "__PM25ML_MODEL_BUNDLE__"
+                    PM25ML_ALLOCATION_ID: ${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}
+                    GEE_GRID_ASSET_PATH: ${profile_env.GEE_GRID_ASSET_PATH}
+                    PROFILE_GRID_CELL_COUNT: ${profile_env.PROFILE_GRID_CELL_COUNT}
+                    PM25_SOURCE_IDS: ${profile_env.PM25_SOURCE_IDS}
+                    CSV_BUCKET_NAME: crea-ee-csv-buffer
+                    GEE_STAGING_BUCKET_NAME: crea-pm25ml-gee-staging
+                    INGEST_ARCHIVE_BUCKET_NAME: crea-pm25ml-ingest-archive
+                    COMBINED_BUCKET_NAME: crea-pm25ml-combined
+                    MODEL_STORAGE_BUCKET_NAME: crea-pm25ml-models
+                    FINAL_RESULT_BUCKET_NAME: crea-pm25ml-final-results
+                    SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX: "^era5_land__.*$"
+                    TQDM_DISABLE: "1"
+                    START_MONTH: "2018-08-01"
+                    END_MONTH: ${ default(map.get(args, "end_month"), "") }
+                    MAX_DATA_LAG_MONTHS: ${ string(default(map.get(args, "max_data_lag_months"), 3)) }
+                    RUNNING_IN_CLOUD_BATCH: "true"
+                - common_secret_env:
+                    SLACK_API_TOKEN: projects/vital-form-455413-p8/secrets/SLACK_API_TOKEN/versions/latest
+                - continue_from: ${ default(map.get(args, "continue_from"), "preflight") }
 
-    - set_india_profile_env:
-        assign:
-          - profile_env: ${ india_profile_env }
-        next: build_common_env
+          - validate_continue_from:
+              switch:
+                - condition: ${ map.get(stage_index, continue_from) == null }
+                  steps:
+                    - invalid_continue_from:
+                        raise: '${ "Invalid continue_from value: " + string(continue_from) }'
 
-    - set_in_bd_profile_env:
-        assign:
-          - profile_env: ${ in_bd_profile_env }
-        next: build_common_env
+          - set_start_index:
+              assign:
+                - start_index: ${ stage_index[continue_from] }
 
-    - build_common_env:
-        assign:
-          - common_env:
-              GCP_PROJECT: vital-form-455413-p8
-              PIPELINE_PROFILE: ${profile}
-              MODEL_RUN_REF: ${ default(map.get(args, "model_run_ref"), "") }
-              PM25ML_BUNDLE_SOURCE: __PM25ML_BUNDLE_SOURCE__
-              MODEL_BUNDLE: "__PM25ML_MODEL_BUNDLE__"
-              PM25ML_ALLOCATION_ID: ${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}
-              GEE_GRID_ASSET_PATH: ${profile_env.GEE_GRID_ASSET_PATH}
-              PROFILE_GRID_CELL_COUNT: ${profile_env.PROFILE_GRID_CELL_COUNT}
-              PM25_SOURCE_IDS: ${profile_env.PM25_SOURCE_IDS}
-              CSV_BUCKET_NAME: crea-ee-csv-buffer
-              GEE_STAGING_BUCKET_NAME: crea-pm25ml-gee-staging
-              INGEST_ARCHIVE_BUCKET_NAME: crea-pm25ml-ingest-archive
-              COMBINED_BUCKET_NAME: crea-pm25ml-combined
-              MODEL_STORAGE_BUCKET_NAME: crea-pm25ml-models
-              FINAL_RESULT_BUCKET_NAME: crea-pm25ml-final-results
-              SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX: "^era5_land__.*$"
-              TQDM_DISABLE: "1"
-              START_MONTH: "2018-08-01"
-              END_MONTH: ${ default(map.get(args, "end_month"), "") }
-              MAX_DATA_LAG_MONTHS: ${ string(default(map.get(args, "max_data_lag_months"), 3)) }
-              RUNNING_IN_CLOUD_BATCH: "true"
-          - common_secret_env:
-              SLACK_API_TOKEN: projects/vital-form-455413-p8/secrets/SLACK_API_TOKEN/versions/latest
-          # Extract continue_from arg (string stage name); if empty, start at first pipeline step
-          - continue_from: ${ default(map.get(args, "continue_from"), "preflight") }
+          - build_env_list:
+              call: map_to_env_list
+              args:
+                env_map: ${common_env}
+              result: common_env_list
 
-    # Convert common_env map to Cloud Run env list format [{name, value}, ...]
-    - build_env_list:
-        call: map_to_env_list
-        args:
-          env_map: ${common_env}
-        result: common_env_list
-
-    - resolve_model_run_ref:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 3600
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s000_resolve_model_run_ref
-                  env: ${common_env_list}
-        result: run_job_result
-        next: dispatch_continue_from
-
-    # Single dispatcher: jump directly to requested starting step, else proceed from first
-    - dispatch_continue_from:
-        switch:
-          - condition: ${ continue_from == "preflight" }
-            next: preflight
-          - condition: ${ continue_from == "discover" }
-            next: discover
-          - condition: ${ continue_from == "collect_data_and_combine" }
-            next: collect_data_and_combine
-          - condition: ${ continue_from == "generate_features" }
-            next: generate_features
-          - condition: ${ continue_from == "sample" }
-            next: sample
-          - condition: ${ continue_from == "train" }
-            next: check_if_training
-          - condition: ${ continue_from == "impute" }
-            next: impute
-          - condition: ${ continue_from == "full_model_sample" }
-            next: full_model_sample
-          - condition: ${ continue_from == "full_model_train" }
-            next: full_model_train
-          - condition: ${ continue_from == "full_model_predict" }
-            next: full_model_predict
-          - condition: ${ continue_from == "output_results" }
-            next: output_results
-        next: invalid_continue_from
-
-    - invalid_continue_from:
-        raise: '${ "Invalid continue_from value: " + string(continue_from) }'
-
-    - preflight:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 3600
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s001_preflight
-                  env: ${common_env_list}
-        result: run_job_result
-        next: discover
-
-    - discover:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 86400
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s005_discover
-                  env: ${common_env_list}
-        result: run_job_result
-        next: collect_data_and_combine
-
-    - collect_data_and_combine:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 86400
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s010_fetch_and_combine
-                  env: ${common_env_list}
-        result: run_job_result
-
-    - generate_features:
-        call: googleapis.batch.v1.projects.locations.jobs.create
-        args:
-          parent: projects/vital-form-455413-p8/locations/europe-west1
-          jobId: ${"pm25ml-feature-" + string(int(sys.now()))}
-          connector_params:
-            timeout: 10800
-          body:
-            allocationPolicy:
-              serviceAccount:
-                email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
-              instances:
-                - policy:
-                    machineType: n4-standard-8     # 8 vCPU / 32 GiB
-                    provisioningModel: SPOT        # pre-emptible
-            taskGroups:
-              - taskCount: 1
-                taskSpec:
-                  runnables:
-                    - container:
-                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
-                        commands:
+          - resolve_model_run_ref:
+              call: googleapis.run.v1.namespaces.jobs.run
+              args:
+                name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                location: europe-west1
+                connector_params:
+                  timeout: 3600
+                body:
+                  overrides:
+                    containerOverrides:
+                      - args:
                           - python
                           - -m
-                          - pm25ml.run.s020_generate_features
-                      environment:
-                        variables: ${common_env}
-                        secretVariables: ${common_secret_env}
-                  computeResource:
-                    memoryMib: 32768               # 32 GiB
-                    cpuMilli: 8000                 # 8 vCPU
-                  maxRetryCount: 3
-            logsPolicy:
-              destination: CLOUD_LOGGING
-        result: batch_job_result
+                          - pm25ml.run.s000_resolve_model_run_ref
+                        env: ${common_env_list}
+              result: run_job_result
 
-    - sample:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 10800
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s030_sample_for_imputation
-                  env: ${common_env_list}
-        result: run_job_result
-
-    - check_if_training:
-        switch:
-          - condition: ${ default(map.get(args, "do_training"), true) }
-            next: train
-        next: impute
-
-    - train:
-        parallel:
-          for:
-            value: model
-            in:
-              - aod
-              - co
-              - no2
-            steps:
-              - train_model:
-                  call: googleapis.batch.v1.projects.locations.jobs.create
-                  args:
-                    parent: projects/vital-form-455413-p8/locations/europe-west1
-                    jobId: ${"train-" + model + string(int(sys.now()))}
-                    connector_params:
-                      timeout: 10800
-                    body:
-                      allocationPolicy:
-                        serviceAccount:
-                          email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
-                        instances:
-                          - policy:
-                              machineType: c2d-highcpu-112
-                              provisioningModel: SPOT
-                            
-                      taskGroups:
-                        - taskCount: 1
-                          taskSpec:
-                            runnables:
-                              - container:
-                                  imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
-                                  commands:
+    - data_preparation:
+        steps:
+          - preflight:
+              switch:
+                - condition: ${ stage_index.preflight >= start_index }
+                  steps:
+                    - run_preflight:
+                        call: googleapis.run.v1.namespaces.jobs.run
+                        args:
+                          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                          location: europe-west1
+                          connector_params:
+                            timeout: 3600
+                          body:
+                            overrides:
+                              containerOverrides:
+                                - args:
                                     - python
                                     - -m
-                                    - ${"pm25ml.run.s040_train_" + model + "_imputer"}
-                                environment:
-                                  variables: ${common_env}
-                                  secretVariables: ${common_secret_env}
-                            computeResource:
-                              memoryMib: 196608 # 192 GiB
-                              cpuMilli: 112000 # 112 vCPU
-                            maxRetryCount: 3
-                      logsPolicy:
-                        destination: CLOUD_LOGGING
-                  result: train_job_result
+                                    - pm25ml.run.s001_preflight
+                                  env: ${common_env_list}
+                        result: run_job_result
 
-    - impute:
-        call: googleapis.batch.v1.projects.locations.jobs.create
-        args:
-          parent: projects/vital-form-455413-p8/locations/europe-west1
-          jobId: ${"pm25ml-feature-" + string(int(sys.now()))}
-          connector_params:
-            timeout: 108000
-          body:
-            allocationPolicy:
-              serviceAccount:
-                email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
-              instances:
-                - policy:
-                    # Imputation should run on intel CPUs for use with daal4py
-                    machineType: n4-standard-16     # 16 vCPU / 64 GiB
-            taskGroups:
-              - taskCount: 1
-                taskSpec:
-                  runnables:
-                    - container:
-                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
-                        commands:
-                          - python
-                          - -m
-                          - pm25ml.run.s050_impute
-                      environment:
-                        variables: ${common_env}
-                        secretVariables: ${common_secret_env}
-                  computeResource:
-                    memoryMib: 65536               # 64 GiB
-                    cpuMilli: 16000                 # 16 vCPU
-                  maxRetryCount: 3
-            logsPolicy:
-              destination: CLOUD_LOGGING
-        result: batch_job_result
+          - discover:
+              switch:
+                - condition: ${ stage_index.discover >= start_index }
+                  steps:
+                    - run_discover:
+                        call: googleapis.run.v1.namespaces.jobs.run
+                        args:
+                          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                          location: europe-west1
+                          connector_params:
+                            timeout: 86400
+                          body:
+                            overrides:
+                              containerOverrides:
+                                - args:
+                                    - python
+                                    - -m
+                                    - pm25ml.run.s005_discover
+                                  env: ${common_env_list}
+                        result: run_job_result
 
-    - full_model_sample:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 86400
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s060_prep_for_full_model
-                  env: ${common_env_list}
-        result: run_job_result
+          - collect_data_and_combine:
+              switch:
+                - condition: ${ stage_index.collect_data_and_combine >= start_index }
+                  steps:
+                    - run_collect_data_and_combine:
+                        call: googleapis.run.v1.namespaces.jobs.run
+                        args:
+                          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                          location: europe-west1
+                          connector_params:
+                            timeout: 86400
+                          body:
+                            overrides:
+                              containerOverrides:
+                                - args:
+                                    - python
+                                    - -m
+                                    - pm25ml.run.s010_fetch_and_combine
+                                  env: ${common_env_list}
+                        result: run_job_result
 
-    - full_model_train:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 86400
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s070_train_full_model
-                  env: ${common_env_list}
-        result: run_job_result
+    - features_and_imputation:
+        steps:
+          - generate_features:
+              switch:
+                - condition: ${ stage_index.generate_features >= start_index }
+                  steps:
+                    - run_generate_features:
+                        call: googleapis.batch.v1.projects.locations.jobs.create
+                        args:
+                          parent: projects/vital-form-455413-p8/locations/europe-west1
+                          jobId: ${"pm25ml-feature-" + string(int(sys.now()))}
+                          connector_params:
+                            timeout: 10800
+                          body:
+                            allocationPolicy:
+                              serviceAccount:
+                                email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
+                              instances:
+                                - policy:
+                                    machineType: n4-standard-8     # 8 vCPU / 32 GiB
+                                    provisioningModel: SPOT        # pre-emptible
+                            taskGroups:
+                              - taskCount: 1
+                                taskSpec:
+                                  runnables:
+                                    - container:
+                                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
+                                        commands:
+                                          - python
+                                          - -m
+                                          - pm25ml.run.s020_generate_features
+                                      environment:
+                                        variables: ${common_env}
+                                        secretVariables: ${common_secret_env}
+                                  computeResource:
+                                    memoryMib: 32768               # 32 GiB
+                                    cpuMilli: 8000                 # 8 vCPU
+                                  maxRetryCount: 3
+                            logsPolicy:
+                              destination: CLOUD_LOGGING
+                        result: batch_job_result
 
-    - full_model_predict:
-        call: googleapis.batch.v1.projects.locations.jobs.create
-        args:
-          parent: projects/vital-form-455413-p8/locations/europe-west1
-          jobId: ${"pm25ml-feature-" + string(int(sys.now()))}
-          connector_params:
-            timeout: 108000
-          body:
-            allocationPolicy:
-              serviceAccount:
-                email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
-              instances:
-                - policy:
-                    # Prediction should run on intel CPUs for use with daal4py
-                    machineType: n4-standard-8     # 8 vCPU / 32 GiB
-            taskGroups:
-              - taskCount: 1
-                taskSpec:
-                  runnables:
-                    - container:
-                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
-                        commands:
-                          - python
-                          - -m
-                          - pm25ml.run.s080_predict_full_model
-                      environment:
-                        variables: ${common_env}
-                        secretVariables: ${common_secret_env}
-                  computeResource:
-                    memoryMib: 32768               # 32 GiB
-                    cpuMilli: 8000                 # 8 vCPU
-                  maxRetryCount: 3
-            logsPolicy:
-              destination: CLOUD_LOGGING
-        result: batch_job_result
-    - output_results:
-        call: googleapis.run.v1.namespaces.jobs.run
-        args:
-          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
-          location: europe-west1
-          connector_params:
-            timeout: 10800
-          body:
-            overrides:
-              containerOverrides:
-                - args:
-                    - python
-                    - -m
-                    - pm25ml.run.s090_outputs
-                  env: ${common_env_list}
-        result: run_job_result
+          - sample:
+              switch:
+                - condition: ${ stage_index.sample >= start_index }
+                  steps:
+                    - run_sample:
+                        call: googleapis.run.v1.namespaces.jobs.run
+                        args:
+                          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                          location: europe-west1
+                          connector_params:
+                            timeout: 10800
+                          body:
+                            overrides:
+                              containerOverrides:
+                                - args:
+                                    - python
+                                    - -m
+                                    - pm25ml.run.s030_sample_for_imputation
+                                  env: ${common_env_list}
+                        result: run_job_result
+
+          - check_if_training:
+              switch:
+                - condition: ${ stage_index.train >= start_index and default(map.get(args, "do_training"), true) }
+                  steps:
+                    - train:
+                        parallel:
+                          for:
+                            value: model
+                            in:
+                              - aod
+                              - co
+                              - no2
+                            steps:
+                              - train_model:
+                                  call: googleapis.batch.v1.projects.locations.jobs.create
+                                  args:
+                                    parent: projects/vital-form-455413-p8/locations/europe-west1
+                                    jobId: ${"train-" + model + string(int(sys.now()))}
+                                    connector_params:
+                                      timeout: 10800
+                                    body:
+                                      allocationPolicy:
+                                        serviceAccount:
+                                          email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
+                                        instances:
+                                          - policy:
+                                              machineType: c2d-highcpu-112
+                                              provisioningModel: SPOT
+                                      taskGroups:
+                                        - taskCount: 1
+                                          taskSpec:
+                                            runnables:
+                                              - container:
+                                                  imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
+                                                  commands:
+                                                    - python
+                                                    - -m
+                                                    - ${"pm25ml.run.s040_train_" + model + "_imputer"}
+                                                environment:
+                                                  variables: ${common_env}
+                                                  secretVariables: ${common_secret_env}
+                                            computeResource:
+                                              memoryMib: 196608 # 192 GiB
+                                              cpuMilli: 112000 # 112 vCPU
+                                            maxRetryCount: 3
+                                      logsPolicy:
+                                        destination: CLOUD_LOGGING
+                                  result: train_job_result
+
+          - impute:
+              switch:
+                - condition: ${ stage_index.impute >= start_index }
+                  steps:
+                    - run_impute:
+                        call: googleapis.batch.v1.projects.locations.jobs.create
+                        args:
+                          parent: projects/vital-form-455413-p8/locations/europe-west1
+                          jobId: ${"pm25ml-feature-" + string(int(sys.now()))}
+                          connector_params:
+                            timeout: 108000
+                          body:
+                            allocationPolicy:
+                              serviceAccount:
+                                email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
+                              instances:
+                                - policy:
+                                    # Imputation should run on intel CPUs for use with daal4py
+                                    machineType: n4-standard-16     # 16 vCPU / 64 GiB
+                            taskGroups:
+                              - taskCount: 1
+                                taskSpec:
+                                  runnables:
+                                    - container:
+                                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
+                                        commands:
+                                          - python
+                                          - -m
+                                          - pm25ml.run.s050_impute
+                                      environment:
+                                        variables: ${common_env}
+                                        secretVariables: ${common_secret_env}
+                                  computeResource:
+                                    memoryMib: 65536               # 64 GiB
+                                    cpuMilli: 16000                 # 16 vCPU
+                                  maxRetryCount: 3
+                            logsPolicy:
+                              destination: CLOUD_LOGGING
+                        result: batch_job_result
+
+    - full_model:
+        steps:
+          - full_model_sample:
+              switch:
+                - condition: ${ stage_index.full_model_sample >= start_index }
+                  steps:
+                    - run_full_model_sample:
+                        call: googleapis.run.v1.namespaces.jobs.run
+                        args:
+                          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                          location: europe-west1
+                          connector_params:
+                            timeout: 86400
+                          body:
+                            overrides:
+                              containerOverrides:
+                                - args:
+                                    - python
+                                    - -m
+                                    - pm25ml.run.s060_prep_for_full_model
+                                  env: ${common_env_list}
+                        result: run_job_result
+
+          - full_model_train:
+              switch:
+                - condition: ${ stage_index.full_model_train >= start_index }
+                  steps:
+                    - run_full_model_train:
+                        call: googleapis.run.v1.namespaces.jobs.run
+                        args:
+                          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                          location: europe-west1
+                          connector_params:
+                            timeout: 86400
+                          body:
+                            overrides:
+                              containerOverrides:
+                                - args:
+                                    - python
+                                    - -m
+                                    - pm25ml.run.s070_train_full_model
+                                  env: ${common_env_list}
+                        result: run_job_result
+
+          - full_model_predict:
+              switch:
+                - condition: ${ stage_index.full_model_predict >= start_index }
+                  steps:
+                    - run_full_model_predict:
+                        call: googleapis.batch.v1.projects.locations.jobs.create
+                        args:
+                          parent: projects/vital-form-455413-p8/locations/europe-west1
+                          jobId: ${"pm25ml-feature-" + string(int(sys.now()))}
+                          connector_params:
+                            timeout: 108000
+                          body:
+                            allocationPolicy:
+                              serviceAccount:
+                                email: pm25ml@vital-form-455413-p8.iam.gserviceaccount.com
+                              instances:
+                                - policy:
+                                    # Prediction should run on intel CPUs for use with daal4py
+                                    machineType: n4-standard-8     # 8 vCPU / 32 GiB
+                            taskGroups:
+                              - taskCount: 1
+                                taskSpec:
+                                  runnables:
+                                    - container:
+                                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
+                                        commands:
+                                          - python
+                                          - -m
+                                          - pm25ml.run.s080_predict_full_model
+                                      environment:
+                                        variables: ${common_env}
+                                        secretVariables: ${common_secret_env}
+                                  computeResource:
+                                    memoryMib: 32768               # 32 GiB
+                                    cpuMilli: 8000                 # 8 vCPU
+                                  maxRetryCount: 3
+                            logsPolicy:
+                              destination: CLOUD_LOGGING
+                        result: batch_job_result
+
+    - output:
+        steps:
+          - output_results:
+              switch:
+                - condition: ${ stage_index.output_results >= start_index }
+                  steps:
+                    - run_output_results:
+                        call: googleapis.run.v1.namespaces.jobs.run
+                        args:
+                          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+                          location: europe-west1
+                          connector_params:
+                            timeout: 10800
+                          body:
+                            overrides:
+                              containerOverrides:
+                                - args:
+                                    - python
+                                    - -m
+                                    - pm25ml.run.s090_outputs
+                                  env: ${common_env_list}
+                        result: run_job_result
 
 # Subworkflow to convert a map to Cloud Run env list format [{name, value}, ...]
 map_to_env_list:
