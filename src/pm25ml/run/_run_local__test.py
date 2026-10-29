@@ -66,5 +66,14 @@ def test__infra_templates__render_commit_and_release_from_yaml_tokens() -> None:
     assert "pm25ml-feature-" in release_workflow
     assert "name: SLACK_API_TOKEN" in commit_job
     assert "name: SLACK_API_TOKEN" in release_job
-    assert "secrets/SLACK_API_TOKEN/versions/latest" in commit_workflow
-    assert "secrets/SLACK_API_TOKEN/versions/latest" in release_workflow
+    assert "secretKeyRef" in commit_job
+    assert "secretVariables: ${common_secret_env}" in commit_workflow
+    assert "secretVariables: ${common_secret_env}" in release_workflow
+    assert (
+        commit_workflow.count(
+            "projects/vital-form-455413-p8/secrets/SLACK_API_TOKEN/versions/latest",
+        )
+        == 1
+    )
+    assert "load_slack_api_token" not in commit_workflow
+    assert "load_slack_api_token" not in release_workflow

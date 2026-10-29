@@ -70,26 +70,10 @@ main:
               END_MONTH: ${ default(map.get(args, "end_month"), "") }
               MAX_DATA_LAG_MONTHS: ${ string(default(map.get(args, "max_data_lag_months"), 3)) }
               RUNNING_IN_CLOUD_BATCH: "true"
+          - common_secret_env:
+              SLACK_API_TOKEN: projects/vital-form-455413-p8/secrets/SLACK_API_TOKEN/versions/latest
           # Extract continue_from arg (string stage name); if empty, start at first pipeline step
           - continue_from: ${ default(map.get(args, "continue_from"), "preflight") }
-
-    - load_slack_api_token:
-        try:
-          steps:
-            - access_slack_api_token:
-                call: googleapis.secretmanager.v1.projects.secrets.versions.access
-                args:
-                  name: projects/vital-form-455413-p8/secrets/SLACK_API_TOKEN/versions/latest
-                result: slack_secret
-            - assign_slack_api_token:
-                assign:
-                  - common_env.SLACK_API_TOKEN: ${text.decode(base64.decode(slack_secret.payload.data))}
-        except:
-          as: slack_secret_error
-          steps:
-            - slack_token_missing:
-                assign:
-                  - common_env.SLACK_API_TOKEN: ""
 
     # Convert common_env map to Cloud Run env list format [{name, value}, ...]
     - build_env_list:
@@ -226,6 +210,7 @@ main:
                           - pm25ml.run.s020_generate_features
                       environment:
                         variables: ${common_env}
+                        secretVariables: ${common_secret_env}
                   computeResource:
                     memoryMib: 32768               # 32 GiB
                     cpuMilli: 8000                 # 8 vCPU
@@ -294,6 +279,7 @@ main:
                                     - ${"pm25ml.run.s040_train_" + model + "_imputer"}
                                 environment:
                                   variables: ${common_env}
+                                  secretVariables: ${common_secret_env}
                             computeResource:
                               memoryMib: 196608 # 192 GiB
                               cpuMilli: 112000 # 112 vCPU
@@ -329,6 +315,7 @@ main:
                           - pm25ml.run.s050_impute
                       environment:
                         variables: ${common_env}
+                        secretVariables: ${common_secret_env}
                   computeResource:
                     memoryMib: 65536               # 64 GiB
                     cpuMilli: 16000                 # 16 vCPU
@@ -398,6 +385,7 @@ main:
                           - pm25ml.run.s080_predict_full_model
                       environment:
                         variables: ${common_env}
+                        secretVariables: ${common_secret_env}
                   computeResource:
                     memoryMib: 32768               # 32 GiB
                     cpuMilli: 8000                 # 8 vCPU
