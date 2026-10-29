@@ -50,7 +50,6 @@ Old tags used `X.Y-rT`. Do not parse those as the next `X.Y.Z`.
 
 ## Notes format
 
-Copy the structure of GitHub release `v1.2-r0`. The GitHub title stays `vX.Y.Z`.
 The body starts with its own heading and a short summary, then the three
 sections below. Use `*` bullets. Nested bullets are fine for filenames,
 columns, or stage names.
@@ -89,9 +88,45 @@ Rules:
 - Do not omit the intro paragraph.
 - Prefer the apostrophe in `What’s changed` (as on `v1.2-r0`).
 
+## Wait for the commit workflow
+
+Tag a commit that is already on `main`. `.github/workflows/release.yml` only
+promotes the image that `.github/workflows/ci.yml` already pushed. It does not
+build or test, and it fails if `pm25ml:<sha>` is missing from Artifact Registry.
+
+Before `git tag`:
+
+1. Use the full SHA of the commit you are about to tag.
+2. Find its push run of `ci.yml` on `main`:
+
+```bash
+gh run list \
+  --repo energyandcleanair/pm25ml \
+  --commit <sha> \
+  --branch main \
+  --workflow ci.yml \
+  --event push \
+  --limit 5 \
+  --json databaseId,status,conclusion,headSha,url,createdAt
+```
+
+3. If that list is empty, stop. Do not create the tag or the GitHub release.
+   The main workflow has not run for this commit.
+4. Take the newest run. When `status` is `queued`, `in_progress`, `waiting`,
+   `pending`, or `requested`, wait until it finishes:
+
+```bash
+gh run watch <databaseId> --repo energyandcleanair/pm25ml --exit-status
+```
+
+5. Continue only when that run's `conclusion` is `success`. If the watch exits
+   non-zero, or the conclusion is anything else, stop and report the run URL.
+   Do not create the tag or the GitHub release, and do not start a rebuild.
+
 ## Publish
 
-After the user confirms version and notes:
+After the user confirms version and notes, and the main workflow for that
+commit has succeeded:
 
 ```bash
 git tag -a X.Y.Z -m "$(cat <<'EOF'

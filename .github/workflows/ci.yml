@@ -3,8 +3,6 @@ name: Workflow
 on:
   push:
     branches: [main]
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -236,51 +234,6 @@ jobs:
         run: |
           gcloud workflows deploy pm25ml-orchestrator \
             --source=/tmp/workflow.yaml \
-            --location=europe-west1 \
-            --service-account=${{ env.ORCHESTRATOR_SERVICE_ACCOUNT_NAME }} \
-            --call-log-level=LOG_ALL_CALLS \
-            --execution-history-level=execution-history-detailed \
-            --quiet
-
-  release-tag:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && success()
-    runs-on: ubuntu-latest
-    needs: [build-image, test, integration-test]
-    concurrency:
-      group: release-tag
-      cancel-in-progress: false
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Check tag shape
-        run: |
-          echo "${{ github.ref_name }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
-      - name: Authenticate with Google Cloud
-        uses: 'google-github-actions/auth@v2'
-        with:
-          project_id: ${{ env.GCP_PROJECT }}
-          service_account: ${{ env.GOOGLE_SERVICE_ACCOUNT_NAME }}
-          workload_identity_provider: ${{ env.WORKFLOW_IDENTITY_PROVIDER }}
-          export_environment_variables: true
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-      - name: Tag built image as the model bundle
-        run: |
-          gcloud container images add-tag \
-          ${{ env.IMAGE_TAG_BASE }}:${{ github.sha }} \
-          ${{ env.IMAGE_TAG_BASE }}:v${{ github.ref_name }}
-      - name: Render release workflow and job
-        run: |
-          python3 .ci/scripts/render_release_workflow.py release \
-            --version "${{ github.ref_name }}" \
-            --workflow-out /tmp/workflow-release.yaml \
-            --job-out /tmp/run-release.yaml
-      - name: Deploy release job spec
-        run: gcloud run jobs replace /tmp/run-release.yaml
-      - name: Deploy release workflow
-        run: |
-          gcloud workflows deploy pm25ml-orchestrator-release \
-            --source=/tmp/workflow-release.yaml \
             --location=europe-west1 \
             --service-account=${{ env.ORCHESTRATOR_SERVICE_ACCOUNT_NAME }} \
             --call-log-level=LOG_ALL_CALLS \
