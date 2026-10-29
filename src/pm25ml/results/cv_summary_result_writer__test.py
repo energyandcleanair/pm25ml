@@ -4,7 +4,10 @@ import pandas as pd
 import pytest
 from morefs.memory import MemFS
 
-from pm25ml.results.cv_summary_result_writer import CvSummaryResultWriter
+from pm25ml.results.cv_summary_result_writer import (
+    CvSummaryResultWriter,
+    format_performance_summary,
+)
 from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.training.model_storage import LoadedValidationMetadata
 
@@ -57,3 +60,25 @@ def test__write__writes_cv_summary_csv_to_expected_location_with_expected_column
     assert len(summary_df) == 1
     assert summary_df.iloc[0]["r2"] == pytest.approx(0.85)
     assert summary_df.iloc[0]["rmse_ugm3"] == pytest.approx(2.0)
+
+
+def test__format_performance_summary__includes_cv_and_test_metrics() -> None:
+    text = format_performance_summary("aod", _sample_validation_metadata())
+
+    assert "## aod performance ##" in text
+    assert "CV r2=0.850  RMSE=2.000" in text
+    assert "Test r2=0.910  RMSE=1.850" in text
+
+
+def test__format_performance_summary__omits_empty_test_metrics() -> None:
+    stats = _sample_validation_metadata()
+    stats = LoadedValidationMetadata(
+        model_run_ref=stats.model_run_ref,
+        cv_results=stats.cv_results,
+        test_metrics={},
+    )
+
+    text = format_performance_summary("full_pm25", stats)
+
+    assert "CV r2=0.850" in text
+    assert "Test r2=" not in text

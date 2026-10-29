@@ -49,3 +49,9 @@ def test__write__existing_file__content_is_overwritten(storage: FinalResultStora
 
     with fs.open(file_path, "rb") as f:
         assert f.read() == b"second-version"
+
+
+def test__gs_uri__joins_bucket_output_path_and_file_name(storage: FinalResultStorage) -> None:
+    assert storage.gs_uri("pm25-full_v1.nc") == (
+        "gs://test_bucket/country=india/run=v1/pm25-full_v1.nc"
+    )

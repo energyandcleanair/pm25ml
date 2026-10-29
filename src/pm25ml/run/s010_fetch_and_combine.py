@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 from pm25ml.collectors.validate_configuration import validate_configuration
 from pm25ml.logging import logger
-from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.dependency_injection import init_dependencies_from_env
 from pm25ml.setup.end_month import load_persisted_temporal_config
+from pm25ml.setup.logging_injection import init_logging_from_env
 from pm25ml.setup.settings import TemporalConfigRequest
 
 if TYPE_CHECKING:
@@ -59,7 +59,8 @@ def _main(  # noqa: PLR0913
 
 
 if __name__ == "__main__":
-    with report_production_stage(STAGE_TITLE):
+    logging = init_logging_from_env()
+    with logging.production_slack().report_stage(STAGE_TITLE):
         container = init_dependencies_from_env()
         container.gee_auth()
         temporal_config = load_persisted_temporal_config(

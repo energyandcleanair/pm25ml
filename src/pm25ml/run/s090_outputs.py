@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import polars as pl
 
-from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.dependency_injection import init_dependencies_from_env
 from pm25ml.setup.end_month import load_persisted_temporal_config
+from pm25ml.setup.logging_injection import init_logging_from_env
 from pm25ml.setup.settings import TemporalConfigRequest
 from pm25ml.training.full_model_pipeline import MODEL_NAME
 
@@ -16,12 +17,23 @@ if TYPE_CHECKING:
     from pm25ml.collectors.grid import Grid
     from pm25ml.combiners.combined_storage import CombinedStorage
     from pm25ml.combiners.data_artifact import DataArtifactRef
+    from pm25ml.results.final_result_storage import FinalResultStorage
     from pm25ml.results.final_result_writer import FinalResultWriter
     from pm25ml.results.final_stats_writer import FinalStatsWriter
     from pm25ml.setup.date_params import TemporalConfig
     from pm25ml.training.model_storage import ModelStorage
 
 STAGE_TITLE = "output_results"
+
+
+def _final_results_message(storage: FinalResultStorage, *, gcp_project: str) -> str:
+    encoded = quote(storage.output_path.strip("/"), safe="/=")
+    console_url = (
+        f"https://console.cloud.google.com/storage/browser/"
+        f"{storage.destination_bucket}/{encoded}?project={gcp_project}"
+    )
+    folder_gs = f"gs://{storage.destination_bucket}/{storage.output_path}"
+    return f"## Final results ##\n{console_url}\n{folder_gs}"
 
 
 def _main(  # noqa: PLR0913
@@ -62,7 +74,9 @@ def _main(  # noqa: PLR0913
 
 
 if __name__ == "__main__":
-    with report_production_stage(STAGE_TITLE):
+    logging = init_logging_from_env()
+    slack = logging.production_slack()
+    with slack.report_stage(STAGE_TITLE):
         container = init_dependencies_from_env()
         temporal_config = load_persisted_temporal_config(
             TemporalConfigRequest.from_env(),
@@ -77,4 +91,10 @@ if __name__ == "__main__":
             model_run_ref=container.model_run_ref(),
             final_result_writers=container.final_result_writers(),
             final_stats_writers=container.final_stats_writers(),
+        )
+        slack.post_info(
+            _final_results_message(
+                container.final_result_storage(),
+                gcp_project=container.settings().gcp_project,
+            ),
         )

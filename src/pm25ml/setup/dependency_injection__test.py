@@ -4,11 +4,12 @@ from unittest.mock import Mock, patch
 
 from dependency_injector import providers
 
-from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.collectors.end_month_selector import EndMonthCoordinator
+from pm25ml.combiners.combined_storage import CombinedStorage
 from pm25ml.setup.dependency_injection import Pm25mlContainer, init_dependencies_from_env
 from pm25ml.setup.end_month import EndMonthStore
 from pm25ml.setup.settings import PipelineSettings
+from pm25ml.setup.slack import ProductionSlack
 from pm25ml.training.model_storage import ModelStorage
 
 
@@ -96,6 +97,15 @@ def test__run_reference__comes_from_typed_settings() -> None:
     container = _container()
 
     assert container.model_run_ref() == "run-1"
+
+
+def test__logging_container__is_included_and_independent_of_pipeline_settings() -> None:
+    container = _container()
+
+    slack = container.logging.production_slack()
+
+    assert isinstance(slack, ProductionSlack)
+    assert container.logging.production_slack() is slack
 
 
 def test__training_and_prediction__share_artifacts_and_run_reference() -> None:

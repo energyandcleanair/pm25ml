@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.dependency_injection import init_dependencies_from_env
 from pm25ml.setup.end_month import load_persisted_temporal_config
+from pm25ml.setup.logging_injection import init_logging_from_env
 from pm25ml.setup.settings import TemporalConfigRequest
 
 if TYPE_CHECKING:
@@ -26,7 +26,8 @@ def _main(
 
 
 if __name__ == "__main__":
-    with report_production_stage(STAGE_TITLE):
+    logging = init_logging_from_env()
+    with logging.production_slack().report_stage(STAGE_TITLE):
         container = init_dependencies_from_env()
         temporal_config = load_persisted_temporal_config(
             TemporalConfigRequest.from_env(),

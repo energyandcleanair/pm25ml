@@ -452,6 +452,17 @@ def load_model_run_ref_for_process(
     return read_allocated_model_run_ref(storage, bucket, allocation_id)
 
 
+def format_resolved_model_run_ref(model_run_ref: str) -> str:
+    """Format the allocated run ref so an operator can copy it."""
+    return "\n".join(
+        [
+            "## Using MODEL_RUN_REF ##",
+            model_run_ref,
+            f"Copy this to resume the run. Field meanings: {VERSIONING_DOC}",
+        ],
+    )
+
+
 def log_resolved_model_run_ref(model_run_ref: str) -> None:
     """Log the chosen ref so an operator can copy it for a resume."""
     logger.info(

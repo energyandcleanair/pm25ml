@@ -31,3 +31,7 @@ class FinalResultStorage:
         with self.filesystem.open(file_path, "wb") as file:
             file.write(data.read())  # pyright: ignore[reportArgumentType]
             file.flush()
+
+    def gs_uri(self, file_name: str) -> str:
+        """Return the gs:// URI for a file in this output prefix."""
+        return f"gs://{self.destination_bucket}/{self.output_path}/{file_name}"

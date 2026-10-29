@@ -40,6 +40,7 @@ from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.sample.full_model_sampler import FullModelSampler
 from pm25ml.sample.imputation_sampler import ImputationSamplerDefinition
 from pm25ml.setup.end_month import EndMonthStore
+from pm25ml.setup.logging_injection import LoggingContainer
 from pm25ml.setup.model_run_ref import (
     apply_model_run_ref_to_environ,
     load_model_run_ref_for_process,
@@ -234,6 +235,7 @@ class Pm25mlContainer(containers.DeclarativeContainer):
     """Compose reusable application services from static typed settings."""
 
     settings = providers.Dependency(instance_of=PipelineSettings)
+    logging = providers.Container(LoggingContainer)
 
     data_artifacts = providers.Singleton(
         _build_data_artifacts,

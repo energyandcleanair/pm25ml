@@ -182,7 +182,8 @@ or overwrites a commit/local run. The filename schema is in `docs/VERSIONING.md`
 The first stage is `s000_resolve_model_run_ref`; later stages load that value.
 
 The release orchestrator posts each stage's start, duration, and failure to
-`#log-pm25ml` as `@pm25ml`. Commit and local runs do not.
+`#log-pm25ml` as `@pm25ml`, plus imputation and full-model performance and
+a Cloud Console link to the results folder. Commit and local runs do not.
 
 This workflow triggers individual stages (`src/pm25ml/run/s*`), which rely on
 dependency injection to get their dependencies.
@@ -191,6 +192,8 @@ dependency injection to get their dependencies.
 
 The runnables for each stage have their dependencies injected from the setup
 module `src/pm25ml/setup` and its submodule `dependency_injection`.
+Production Slack logging lives in a nested `LoggingContainer` so stages can
+start it before the full pipeline graph.
 
 Modules and components outside the `setup` directory should avoid coupling their
 implementation to the precise data, workflow, and features required for the pipeline

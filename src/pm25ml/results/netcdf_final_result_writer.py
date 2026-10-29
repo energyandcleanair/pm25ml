@@ -16,6 +16,11 @@ FILE_PREFIX = "pm25-full"
 SCHEMA_VERSION = "1.0"
 
 
+def netcdf_filename(model_run_ref: str) -> str:
+    """Return the NetCDF result filename for a run."""
+    return f"{FILE_PREFIX}_{model_run_ref}.nc"
+
+
 class NetCdfResultWriter(FinalResultWriter):
     """
     Write a Dataset as NetCDF, then upload it to the configured final storage.
@@ -78,7 +83,7 @@ class NetCdfResultWriter(FinalResultWriter):
         # Direct streaming to remote filesystems isn't supported by h5netcdf/netcdf4 engines.
         # Using a local temp file ensures compatibility and low memory overhead.
         with tempfile.TemporaryDirectory(prefix="pm25ml_netcdf_") as tmpdir:
-            filename = f"{FILE_PREFIX}_{self.model_run_ref}.nc"
+            filename = netcdf_filename(self.model_run_ref)
             tmp_path = Path(tmpdir) / filename
 
             compression_args: dict[str, Any] = {

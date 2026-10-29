@@ -15,6 +15,7 @@ from pm25ml.setup.model_run_ref import (
     ModelRunRefError,
     ProcessVersions,
     allocate_production_model_run_ref,
+    format_resolved_model_run_ref,
     list_existing_run_refs,
     load_model_run_ref_for_process,
     next_production_rel,
@@ -43,6 +44,14 @@ def test__parse_model_run_ref__accepts_production_and_local_forms() -> None:
     assert production.schema == "1.0"
     assert production.bundle == "mb-1.2.0"
     assert local.bundle == "mb-local-abc123-dirty"
+
+
+def test__format_resolved_model_run_ref__puts_ref_on_its_own_line() -> None:
+    text = format_resolved_model_run_ref("rel-2026-10-r0_s-1.0_mb-1.2.0")
+
+    assert "## Using MODEL_RUN_REF ##" in text
+    assert "\nrel-2026-10-r0_s-1.0_mb-1.2.0\n" in text
+    assert "docs/VERSIONING.md" in text
 
 
 def test__parse_model_run_ref__rejects_legacy_bundle() -> None:
