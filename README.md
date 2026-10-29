@@ -181,6 +181,9 @@ Operators do not pass a model bundle. Optional `model_run_ref` resumes a product
 or overwrites a commit/local run. The filename schema is in `docs/VERSIONING.md`.
 The first stage is `s000_resolve_model_run_ref`; later stages load that value.
 
+The release orchestrator posts each stage's start, duration, and failure to
+`#log-pm25ml` as `@pm25ml`. Commit and local runs do not.
+
 This workflow triggers individual stages (`src/pm25ml/run/s*`), which rely on
 dependency injection to get their dependencies.
 

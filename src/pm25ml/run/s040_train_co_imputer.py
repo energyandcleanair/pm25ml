@@ -1,8 +1,11 @@
 """Script to train the AOD model."""
 
 from pm25ml.model_reference import ImputationModelReference
+from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.dependency_injection import init_dependencies_from_env
 from pm25ml.setup.injection_type_helpers import ModelTrainerFactory
+
+STAGE_TITLE = "train_co"
 
 
 def _main(
@@ -15,5 +18,6 @@ def _main(
 
 
 if __name__ == "__main__":
-    container = init_dependencies_from_env()
-    _main(container.ml_model_defs()["co"], container.ml_model_trainer_factory)
+    with report_production_stage(STAGE_TITLE):
+        container = init_dependencies_from_env()
+        _main(container.ml_model_defs()["co"], container.ml_model_trainer_factory)

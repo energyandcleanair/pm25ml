@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from pm25ml.collectors.validate_configuration import validate_configuration
 from pm25ml.logging import logger
+from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.dependency_injection import init_dependencies_from_env
 from pm25ml.setup.end_month import load_persisted_temporal_config
 from pm25ml.setup.settings import TemporalConfigRequest
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from pm25ml.combiners.recombiner.recombiner import Recombiner
     from pm25ml.imputation.spatial.spatial_imputation_manager import SpatialImputationManager
     from pm25ml.setup.date_params import TemporalConfig
+
+STAGE_TITLE = "collect_data_and_combine"
 
 
 def _main(  # noqa: PLR0913
@@ -56,19 +59,20 @@ def _main(  # noqa: PLR0913
 
 
 if __name__ == "__main__":
-    container = init_dependencies_from_env()
-    container.gee_auth()
-    temporal_config = load_persisted_temporal_config(
-        TemporalConfigRequest.from_env(),
-        container.end_month_store(),
-    )
-    _main(
-        processors=list(container.pipelines(temporal_config=temporal_config)),
-        collector=container.collector(),
-        grid_cell_count=container.settings().grid_cell_count,
-        monthly_combiner=container.monthly_combiner(),
-        combine_planner=container.combine_planner(),
-        spatial_imputation_manager=container.spatial_imputation_manager(),
-        spatial_interpolation_recombiner=container.spatial_interpolation_recombiner(),
-        temporal_config=temporal_config,
-    )
+    with report_production_stage(STAGE_TITLE):
+        container = init_dependencies_from_env()
+        container.gee_auth()
+        temporal_config = load_persisted_temporal_config(
+            TemporalConfigRequest.from_env(),
+            container.end_month_store(),
+        )
+        _main(
+            processors=list(container.pipelines(temporal_config=temporal_config)),
+            collector=container.collector(),
+            grid_cell_count=container.settings().grid_cell_count,
+            monthly_combiner=container.monthly_combiner(),
+            combine_planner=container.combine_planner(),
+            spatial_imputation_manager=container.spatial_imputation_manager(),
+            spatial_interpolation_recombiner=container.spatial_interpolation_recombiner(),
+            temporal_config=temporal_config,
+        )

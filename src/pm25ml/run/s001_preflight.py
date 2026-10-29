@@ -17,11 +17,14 @@ from ee.ee_exception import EEException
 from ee.featurecollection import FeatureCollection
 
 from pm25ml.logging import logger
+from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.dependency_injection import initialize_gee
 from pm25ml.setup.settings import PreflightSettings
 
 if TYPE_CHECKING:
     from fsspec import AbstractFileSystem
+
+STAGE_TITLE = "preflight"
 
 
 @dataclass(frozen=True)
@@ -215,6 +218,7 @@ def _main(settings: PreflightSettings, gcs_filesystem: AbstractFileSystem) -> No
 if __name__ == "__main__":
     from gcsfs import GCSFileSystem
 
-    preflight_settings = PreflightSettings.from_env()
-    initialize_gee(preflight_settings.gcp_project)
-    _main(preflight_settings, GCSFileSystem())
+    with report_production_stage(STAGE_TITLE):
+        preflight_settings = PreflightSettings.from_env()
+        initialize_gee(preflight_settings.gcp_project)
+        _main(preflight_settings, GCSFileSystem())

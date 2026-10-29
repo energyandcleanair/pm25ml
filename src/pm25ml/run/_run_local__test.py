@@ -64,3 +64,7 @@ def test__infra_templates__render_commit_and_release_from_yaml_tokens() -> None:
     assert "pm25ml/pm25ml:v1.2.0" in release_workflow
     assert "name: pm25ml-release" in release_job
     assert "pm25ml-feature-" in release_workflow
+    assert "name: SLACK_API_TOKEN" in commit_job
+    assert "name: SLACK_API_TOKEN" in release_job
+    assert "secrets/SLACK_API_TOKEN/versions/latest" in commit_workflow
+    assert "secrets/SLACK_API_TOKEN/versions/latest" in release_workflow

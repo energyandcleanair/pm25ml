@@ -7,6 +7,7 @@ import os
 from fsspec.implementations.local import LocalFileSystem
 from gcsfs import GCSFileSystem
 
+from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.model_run_ref import (
     BUNDLE_SOURCE_RELEASE,
     apply_model_run_ref_to_environ,
@@ -15,6 +16,8 @@ from pm25ml.setup.model_run_ref import (
     persist_resolved_model_run_ref,
     resolve_model_run_ref,
 )
+
+STAGE_TITLE = "resolve_model_run_ref"
 
 
 def _filesystem() -> GCSFileSystem | LocalFileSystem:
@@ -35,4 +38,5 @@ def _main() -> None:
 
 
 if __name__ == "__main__":
-    _main()
+    with report_production_stage(STAGE_TITLE):
+        _main()

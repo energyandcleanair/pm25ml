@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pm25ml.logging import logger
+from pm25ml.run._stage_report import report_production_stage
 from pm25ml.setup.date_params import TemporalConfig
 from pm25ml.setup.dependency_injection import init_dependencies_from_env
 from pm25ml.setup.settings import TemporalConfigRequest
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
     from pm25ml.collectors.end_month_selector import EndMonthCoordinator
     from pm25ml.collectors.export_pipeline import ExportPipeline
     from pm25ml.setup.dependency_injection import Pm25mlContainer
+
+STAGE_TITLE = "discover"
 
 
 def _candidate_pipelines(
@@ -48,10 +51,11 @@ def _main(
 
 
 if __name__ == "__main__":
-    container = init_dependencies_from_env()
-    container.gee_auth()
-    _main(
-        coordinator=container.end_month_coordinator(),
-        request=TemporalConfigRequest.from_env(),
-        candidate_pipeline_factory=lambda month: _candidate_pipelines(container, month),
-    )
+    with report_production_stage(STAGE_TITLE):
+        container = init_dependencies_from_env()
+        container.gee_auth()
+        _main(
+            coordinator=container.end_month_coordinator(),
+            request=TemporalConfigRequest.from_env(),
+            candidate_pipeline_factory=lambda month: _candidate_pipelines(container, month),
+        )
