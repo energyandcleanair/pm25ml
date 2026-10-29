@@ -49,7 +49,7 @@ def test__parse_model_run_ref__accepts_production_and_local_forms() -> None:
 def test__format_resolved_model_run_ref__puts_ref_on_its_own_line() -> None:
     text = format_resolved_model_run_ref("rel-2026-10-r0_s-1.0_mb-1.2.0")
 
-    assert "## Using MODEL_RUN_REF ##" in text
+    assert "Using MODEL_RUN_REF" in text
     assert "\nrel-2026-10-r0_s-1.0_mb-1.2.0\n" in text
     assert "docs/VERSIONING.md" in text
 

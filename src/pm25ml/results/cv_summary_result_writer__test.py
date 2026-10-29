@@ -65,7 +65,7 @@ def test__write__writes_cv_summary_csv_to_expected_location_with_expected_column
 def test__format_performance_summary__includes_cv_and_test_metrics() -> None:
     text = format_performance_summary("aod", _sample_validation_metadata())
 
-    assert "## aod performance ##" in text
+    assert "aod performance" in text
     assert "CV r2=0.850  RMSE=2.000" in text
     assert "Test r2=0.910  RMSE=1.850" in text
 

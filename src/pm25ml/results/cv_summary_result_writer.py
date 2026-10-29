@@ -38,7 +38,7 @@ def format_performance_summary(model_name: str, stats: LoadedValidationMetadata)
     """Format CV and test metrics for a trained model."""
     r2, rmse = mean_cv_r2_and_rmse(stats.cv_results)
     lines = [
-        f"## {model_name} performance ##",
+        f"{model_name} performance",
         f"CV r2={r2:.3f}  RMSE={rmse:.3f}",
     ]
     test_metrics = stats.test_metrics or {}

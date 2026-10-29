@@ -33,7 +33,7 @@ def _final_results_message(storage: FinalResultStorage, *, gcp_project: str) -> 
         f"{storage.destination_bucket}/{encoded}?project={gcp_project}"
     )
     folder_gs = f"gs://{storage.destination_bucket}/{storage.output_path}"
-    return f"## Final results ##\n{console_url}\n{folder_gs}"
+    return f"Final results\n{console_url}\n{folder_gs}"
 
 
 def _main(  # noqa: PLR0913

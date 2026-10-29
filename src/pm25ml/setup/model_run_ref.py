@@ -456,7 +456,7 @@ def format_resolved_model_run_ref(model_run_ref: str) -> str:
     """Format the allocated run ref so an operator can copy it."""
     return "\n".join(
         [
-            "## Using MODEL_RUN_REF ##",
+            "Using MODEL_RUN_REF",
             model_run_ref,
             f"Copy this to resume the run. Field meanings: {VERSIONING_DOC}",
         ],

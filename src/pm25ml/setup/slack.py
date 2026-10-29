@@ -56,21 +56,21 @@ class ProductionSlack:
             environ=values,
         )
 
-    def _context_lines(self) -> str:
-        lines: list[str] = []
+    def _context_line(self) -> str | None:
         model_run_ref = self._environ.get("MODEL_RUN_REF", "").strip()
         profile = self._environ.get("PIPELINE_PROFILE", "").strip()
-        if model_run_ref:
-            lines.append(f"MODEL_RUN_REF={model_run_ref}")
-        if profile:
-            lines.append(f"PIPELINE_PROFILE={profile}")
-        return "\n".join(lines)
+        parts = [part for part in (model_run_ref, profile) if part]
+        if not parts:
+            return None
+        return f"_{' | '.join(parts)}_"
 
-    def _message_text(self, headline: str) -> str:
-        extra = self._context_lines()
-        if extra:
-            return f"{headline}\n{extra}"
-        return headline
+    def _attachment_text(self, headline: str) -> str:
+        lines = []
+        context = self._context_line()
+        if context:
+            lines.append(context)
+        lines.append(headline)
+        return "\n".join(lines)
 
     def _post(
         self,
@@ -81,14 +81,17 @@ class ProductionSlack:
     ) -> None:
         if not self._enabled:
             return
+        # Omit top-level text. Slack renders it again above the attachment.
         payload = {
             "channel": SLACK_CHANNEL,
-            "text": headline,
             "attachments": [
                 {
                     "color": color,
                     "title": title,
-                    "text": self._message_text(headline),
+                    "text": self._attachment_text(headline),
+                    "fallback": headline,
+                    "footer": title,
+                    "ts": int(time.time()),
                     "mrkdwn_in": ["text"],
                 },
             ],
@@ -125,7 +128,7 @@ class ProductionSlack:
     @contextmanager
     def report_stage(self, stage_name: str) -> Iterator[None]:
         """Log a production stage start, duration, and failure to Slack when enabled."""
-        self.post_step(f"## Running step: {stage_name} ##")
+        self.post_step(f"Running step: {stage_name}")
         started = time.monotonic()
         try:
             yield

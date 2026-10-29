@@ -18,7 +18,7 @@ def test__final_results_message__includes_console_folder_and_gs_prefix() -> None
     text = _final_results_message(storage, gcp_project="vital-form-455413-p8")
 
     folder = f"country=india/run={MODEL_RUN_REF}"
-    assert "## Final results ##" in text
+    assert "Final results" in text
     assert (
         "https://console.cloud.google.com/storage/browser/"
         f"crea-pm25ml-final-results/{folder}?project=vital-form-455413-p8"
