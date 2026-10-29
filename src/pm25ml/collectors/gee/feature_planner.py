@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, cast
 
+import arrow
 from ee import Algorithms
 from ee.ee_date import Date
 from ee.ee_list import List
@@ -16,6 +17,8 @@ from pm25ml.collectors.constants import INDIA_CRS
 from pm25ml.collectors.export_pipeline import AVAILABLE_ID_KEY_NAMES, AvailableIdKeys
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from arrow import Arrow
     from ee.computedobject import ComputedObject
     from ee.ee_number import Number
@@ -24,6 +27,7 @@ if TYPE_CHECKING:
 
 ISO8601_WITHOUT_TZ = "YYYY-MM-DDTHH:mm:ss"
 ISO8601_DATE_ONLY = "YYYY-MM-DD"
+_EARTH_ENGINE_MILLISECOND_EPOCH_THRESHOLD = 10**11
 
 
 class GriddedFeatureCollectionPlanner:
@@ -141,9 +145,34 @@ class GriddedFeatureCollectionPlanner:
 
         date_summary = self._common_granularity(dates)
 
+        def available_dates_lister() -> list[date]:
+            """List days with an image intersecting the grid bounds, without export transforms."""
+            light_collection = (
+                ImageCollection(collection_name)
+                .select(selected_bands[:1])
+                .filterBounds(grid_geometry.bounds())
+                .filterDate(date_window_start, date_window_end)
+            )
+            day_offsets = List.sequence(0, len(dates) - 1)
+            window_start = Date(min(date.format(ISO8601_DATE_ONLY) for date in dates))
+
+            def image_count_for_offset(offset: ComputedObject) -> ComputedObject:
+                day_start = window_start.advance(offset, "day")
+                return light_collection.filterDate(
+                    day_start,
+                    day_start.advance(1, "day"),
+                ).size()
+
+            counts = day_offsets.map(image_count_for_offset).getInfo() or []
+            return [
+                planned.date()
+                for planned, count in zip(dates, counts, strict=True)
+                if int(count) > 0
+            ]
+
         def availability_checker() -> bool:
             """Check whether at least one source image exists without evaluating transforms."""
-            return collection.limit(1).size().getInfo() == 1
+            return len(available_dates_lister()) >= 1
 
         return FeaturePlan(
             feature_name=self._generate_clean_name(
@@ -156,6 +185,7 @@ class GriddedFeatureCollectionPlanner:
             expected_n_rows=self._get_n_grids() * len(dates),
             dates=dates,
             availability_checker=availability_checker,
+            available_dates_lister=available_dates_lister,
         )
 
     def plan_static_feature(
@@ -383,6 +413,7 @@ class FeaturePlan:
     ignore_selectors: bool = False
     dates: list[Arrow] | None = None
     availability_checker: Callable[[], bool] | None = None
+    available_dates_lister: Callable[[], list[date]] | None = None
 
     @property
     def intermediate_columns(self) -> list[str]:
@@ -432,6 +463,16 @@ class FeaturePlan:
             if key not in AVAILABLE_ID_KEY_NAMES
         }
 
+    def list_available_dates(self) -> list[date] | None:
+        """
+        Return source image dates when a metadata listing is available.
+
+        ``None`` means this plan cannot list dates without collecting data.
+        """
+        if self.available_dates_lister is None:
+            return None
+        return self.available_dates_lister()
+
     def is_data_available(self) -> bool:
         """
         Check if the feature collection is available.
@@ -445,3 +486,16 @@ class FeaturePlan:
         if self.availability_checker:
             return self.availability_checker()
         return True
+
+
+def _earth_engine_timestamp_to_date(timestamp: object) -> date:
+    """Convert an Earth Engine ``system:time_start`` value to a UTC calendar date."""
+    if isinstance(timestamp, (int, float)):
+        milliseconds = float(timestamp)
+        seconds = (
+            milliseconds / 1000
+            if milliseconds >= _EARTH_ENGINE_MILLISECOND_EPOCH_THRESHOLD
+            else milliseconds
+        )
+        return arrow.get(seconds).to("UTC").date()
+    return arrow.get(cast("str", timestamp)).to("UTC").date()

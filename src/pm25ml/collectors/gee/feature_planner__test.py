@@ -92,6 +92,17 @@ def test__FeaturePlan_is_data_available__delegated_func_returns_false__false() -
     assert feature_plan.is_data_available() is False
 
 
+def test__FeaturePlan_list_available_dates__no_lister__none() -> None:
+    feature_plan = FeaturePlan(
+        feature_name="test-type",
+        planned_collection=MagicMock(),
+        column_mappings={"date": "date"},
+        expected_n_rows=DUMMY_N_ROWS_VALUE,
+    )
+
+    assert feature_plan.list_available_dates() is None
+
+
 def test__FeaturePlan_is_data_available__no_availability_checker__true() -> None:
     mock_feature_collection = MagicMock()
     column_mappings = {"date": "date", "grid_id": "grid_id", "key1": "value1"}
@@ -234,7 +245,7 @@ def test__GriddedFeatureCollectionPlanner_plan_daily_average__missing_days__drop
     )
 
 
-def test__plan_daily_average__availability_checks_only_one_source_image(
+def test__plan_daily_average__availability_lists_source_image_dates(
     mock_gee_for_daily_average,
 ) -> None:
     grid = MagicMock()
@@ -242,7 +253,11 @@ def test__plan_daily_average__availability_checks_only_one_source_image(
     source_collection = mock_gee_for_daily_average[
         "mock_ic_instance"
     ].filterBounds.return_value.filterDate.return_value
-    source_collection.limit.return_value.size.return_value.getInfo.return_value = 1
+    mock_gee_for_daily_average[
+        "MockList"
+    ].sequence.return_value.map.return_value.getInfo.return_value = [
+        1,
+    ]
 
     plan = planner.plan_daily_average(
         collection_name="FAKE/COLLECTION",
@@ -251,7 +266,8 @@ def test__plan_daily_average__availability_checks_only_one_source_image(
     )
 
     assert plan.is_data_available() is True
-    source_collection.limit.assert_called_once_with(1)
+    assert plan.list_available_dates() == [get("2023-04-01").date()]
+    mock_gee_for_daily_average["MockList"].sequence.assert_called_with(0, 0)
     mock_gee_for_daily_average["from_images_mock"].size.assert_not_called()
 
 

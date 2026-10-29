@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import arrow
 import pytest
@@ -487,4 +487,55 @@ def test_GeeExportPipeline_upload__empty_table__raises_missing_data_error(
     with pytest.raises(MissingDataError, match="No rows were exported"):
         pipeline.upload()
 
+    mock_archive_storage.write_to_destination.assert_not_called()
+
+
+def test_GeeExportPipeline_probe_coverage__lists_dates_without_export(
+    mock_archive_storage,
+    mock_intermediate_storage_valid_table,
+) -> None:
+    plan = FeaturePlan(
+        feature_name="mock_type",
+        column_mappings={"date": "date", "grid_id": "grid_id", "mean": "aod"},
+        planned_collection=MagicMock(),
+        expected_n_rows=100,
+        dates=[arrow.get("2026-09-01"), arrow.get("2026-09-02")],
+        available_dates_lister=lambda: [arrow.get("2026-09-01").date()],
+    )
+    pipeline = GeeExportPipeline(
+        archive_storage=mock_archive_storage,
+        intermediate_storage=mock_intermediate_storage_valid_table,
+        plan=plan,
+        result_subpath="mock/result/path",
+    )
+
+    result = pipeline.probe_coverage()
+
+    assert result.status == "known"
+    assert result.covered_dates == {arrow.get("2026-09-01").date()}
+    mock_archive_storage.write_to_destination.assert_not_called()
+
+
+def test_GeeExportPipeline_probe_coverage__listing_error__is_unknown(
+    mock_archive_storage,
+    mock_intermediate_storage_valid_table,
+) -> None:
+    plan = FeaturePlan(
+        feature_name="mock_type",
+        column_mappings={"date": "date"},
+        planned_collection=MagicMock(),
+        expected_n_rows=100,
+        dates=[arrow.get("2026-09-01")],
+        available_dates_lister=Mock(side_effect=RuntimeError("gee failed")),
+    )
+    pipeline = GeeExportPipeline(
+        archive_storage=mock_archive_storage,
+        intermediate_storage=mock_intermediate_storage_valid_table,
+        plan=plan,
+        result_subpath="mock/result/path",
+    )
+
+    result = pipeline.probe_coverage()
+
+    assert result.status == "unknown"
     mock_archive_storage.write_to_destination.assert_not_called()

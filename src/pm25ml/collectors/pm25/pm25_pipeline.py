@@ -1,6 +1,7 @@
 """Pipeline for ingesting CREA measurements data."""
 
 from abc import ABC, abstractmethod
+from datetime import date
 
 import numpy as np
 import polars as pl
@@ -8,6 +9,7 @@ from arrow import Arrow
 from sklearn.neighbors import BallTree
 
 from pm25ml.collectors.archive_storage import IngestArchiveStorage
+from pm25ml.collectors.coverage import dates_from_arrows
 from pm25ml.collectors.export_pipeline import (
     ExportPipeline,
     PipelineConfig,
@@ -126,6 +128,10 @@ class Pm25MeasurementsPipeline(ExportPipeline):
             station_stats_df,
             on="location_id",
         )
+
+    def requested_dates(self) -> frozenset[date]:
+        """Return the calendar days this pipeline is configured to collect."""
+        return dates_from_arrows(self.start_date, self._end_date)
 
     def get_config_metadata(self) -> PipelineConfig:
         """Get the configuration metadata for the pipeline."""

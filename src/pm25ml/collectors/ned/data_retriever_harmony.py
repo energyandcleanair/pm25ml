@@ -17,12 +17,12 @@ import requests
 from arrow import Arrow
 from requests.auth import AuthBase
 
-from pm25ml.collectors.ned.data_retriever_raw import EARTH_ENGINE_SEARCH_DATE_FORMAT
 from pm25ml.collectors.ned.data_retrievers import (
     NedDataRetriever,
 )
 from pm25ml.collectors.ned.dataset_descriptor import NedDatasetDescriptor
 from pm25ml.collectors.ned.errors import NedMissingDataError
+from pm25ml.collectors.ned.granule_search import search_earthaccess_granules
 from pm25ml.logging import logger
 
 # We define helper types to make the code more readable and maintainable.
@@ -109,15 +109,7 @@ class HarmonySubsetterDataRetriever(NedDataRetriever):
         logger.debug("Found dataset with collection ID %s", collection_id)
 
         logger.debug("Searching for granules for dataset %s", dataset_descriptor)
-        granules: list[earthaccess.DataGranule] = earthaccess.search_data(
-            short_name=dataset_descriptor.dataset_name,
-            temporal=(
-                dataset_descriptor.start_date.format(EARTH_ENGINE_SEARCH_DATE_FORMAT),
-                dataset_descriptor.end_date.format(EARTH_ENGINE_SEARCH_DATE_FORMAT),
-            ),
-            count=-1,
-            version=dataset_descriptor.dataset_version,
-        )
+        granules: list[earthaccess.DataGranule] = search_earthaccess_granules(dataset_descriptor)
 
         self._check_expected_granules(granules, dataset_descriptor)
 

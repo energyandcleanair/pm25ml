@@ -4,7 +4,12 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from typing import IO
 
+from pm25ml.collectors.coverage import CoverageProbeResult, dates_from_arrows
 from pm25ml.collectors.ned.dataset_descriptor import NedDatasetDescriptor
+from pm25ml.collectors.ned.granule_search import (
+    covered_dates_from_granules,
+    search_earthaccess_granules,
+)
 
 
 class NedDataRetriever(ABC):
@@ -36,3 +41,25 @@ class NedDataRetriever(ABC):
             dataset.
 
         """
+
+    def probe_coverage(
+        self,
+        *,
+        dataset_descriptor: NedDatasetDescriptor,
+    ) -> CoverageProbeResult:
+        """Search for granules without downloading files."""
+        requested_dates = dates_from_arrows(
+            dataset_descriptor.start_date,
+            dataset_descriptor.end_date,
+        )
+        try:
+            granules = search_earthaccess_granules(dataset_descriptor)
+            covered_dates = covered_dates_from_granules(granules, requested_dates)
+        except Exception as exc:  # noqa: BLE001
+            return CoverageProbeResult.unknown(requested_dates, str(exc))
+        if covered_dates is None:
+            return CoverageProbeResult.unknown(
+                requested_dates,
+                "granule temporal extent was not parseable",
+            )
+        return CoverageProbeResult.known(requested_dates, covered_dates)

@@ -8,9 +8,8 @@ import earthaccess
 from pm25ml.collectors.ned.data_retrievers import NedDataRetriever
 from pm25ml.collectors.ned.dataset_descriptor import NedDatasetDescriptor
 from pm25ml.collectors.ned.errors import NedMissingDataError
+from pm25ml.collectors.ned.granule_search import search_earthaccess_granules
 from pm25ml.logging import logger
-
-EARTH_ENGINE_SEARCH_DATE_FORMAT = "YYYY-MM-DD"
 
 
 class RawEarthAccessDataRetriever(NedDataRetriever):
@@ -42,15 +41,7 @@ class RawEarthAccessDataRetriever(NedDataRetriever):
 
         """
         logger.info("Searching for granules for dataset %s", dataset_descriptor)
-        granules: list[earthaccess.DataGranule] = earthaccess.search_data(
-            short_name=dataset_descriptor.dataset_name,
-            temporal=(
-                dataset_descriptor.start_date.format(EARTH_ENGINE_SEARCH_DATE_FORMAT),
-                dataset_descriptor.end_date.format(EARTH_ENGINE_SEARCH_DATE_FORMAT),
-            ),
-            count=-1,
-            version=dataset_descriptor.dataset_version,
-        )
+        granules: list[earthaccess.DataGranule] = search_earthaccess_granules(dataset_descriptor)
 
         self._check_expected_granules(
             dataset_descriptor=dataset_descriptor,

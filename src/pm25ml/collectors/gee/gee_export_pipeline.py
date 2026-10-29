@@ -11,6 +11,7 @@ from ee.batch import Export, Task
 from nanoid import generate
 from polars import DataFrame, Float32, Int64, String
 
+from pm25ml.collectors.coverage import CoverageProbeResult
 from pm25ml.collectors.export_pipeline import (
     ExportPipeline,
     MissingDataError,
@@ -21,6 +22,8 @@ from pm25ml.collectors.export_pipeline import (
 from pm25ml.logging import logger
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from pm25ml.collectors.archive_storage import IngestArchiveStorage
     from pm25ml.collectors.gee.feature_planner import FeaturePlan
 
@@ -84,6 +87,31 @@ class GeeExportPipeline(ExportPipeline):
         # intermediate storage.
         logger.debug(f"Task {task_name}: deleting task old CSV file from GCS")
         self.intermediate_storage.delete_intermediate_by_id(task_name)
+
+    def requested_dates(self) -> frozenset[date]:
+        """Return the calendar days this pipeline is configured to collect."""
+        if not self.plan.dates:
+            return frozenset()
+        return frozenset(planned.date() for planned in self.plan.dates)
+
+    def probe_coverage(self) -> CoverageProbeResult:
+        """List Earth Engine image dates without starting an export."""
+        requested_dates = self.requested_dates()
+        try:
+            available_dates = self.plan.list_available_dates()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "GEE coverage probe failed for %s: %s",
+                self.result_subpath,
+                exc,
+            )
+            return CoverageProbeResult.unknown(requested_dates, str(exc))
+        if available_dates is None:
+            return CoverageProbeResult.unknown(requested_dates)
+        covered_dates = frozenset(available_dates)
+        if requested_dates:
+            covered_dates &= requested_dates
+        return CoverageProbeResult.known(requested_dates, covered_dates)
 
     def get_config_metadata(self) -> PipelineConfig:
         """Get the expected result of the export operation."""

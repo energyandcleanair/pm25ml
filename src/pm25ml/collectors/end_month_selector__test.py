@@ -1,11 +1,13 @@
 """Tests for automatic end-month selection."""
 
+from datetime import date
 from unittest.mock import Mock
 
 import arrow
 import pytest
 
 from pm25ml.collectors.collector import DataCompleteness, UploadResult
+from pm25ml.collectors.coverage import CoverageProbeResult, calendar_dates
 from pm25ml.collectors.end_month_selector import (
     AutomaticEndMonthSelector,
     EndMonthCoordinator,
@@ -21,12 +23,33 @@ from pm25ml.setup.end_month import EndMonthStore, StaleDataError
 from pm25ml.setup.settings import TemporalConfigRequest
 
 
+def _month_dates(month: str) -> frozenset[date]:
+    start = arrow.get(f"{month}-01")
+    end = start.shift(months=1).shift(days=-1)
+    return calendar_dates(start.date(), end.date())
+
+
+def _full_coverage(month: str) -> CoverageProbeResult:
+    requested = _month_dates(month)
+    return CoverageProbeResult.known(requested, requested)
+
+
+def _empty_coverage(month: str) -> CoverageProbeResult:
+    requested = _month_dates(month)
+    return CoverageProbeResult.known(requested, frozenset())
+
+
+def _unknown_coverage(month: str) -> CoverageProbeResult:
+    return CoverageProbeResult.unknown(_month_dates(month), "upstream error")
+
+
 def _processor(
     dataset: str,
     month: str,
     *,
     allows_missing: bool = False,
     constrains_end_month: bool = True,
+    coverage: CoverageProbeResult | None = None,
 ) -> Mock:
     processor = Mock(spec=ExportPipeline)
     processor.get_config_metadata.return_value = PipelineConfig(
@@ -43,6 +66,7 @@ def _processor(
         ),
         constrains_end_month=constrains_end_month,
     )
+    processor.probe_coverage.return_value = coverage or _full_coverage(month)
     return processor
 
 
@@ -105,15 +129,11 @@ def test__select__filters_normal_pipelines_to_exact_constraining_month() -> None
 
 
 def test__select__incomplete_candidate_and_gap__tries_exact_earlier_months() -> None:
-    june = _processor("satellite", "2026-06")
-    may = _processor("satellite", "2026-05")
+    june = _processor("satellite", "2026-06", coverage=_empty_coverage("2026-06"))
+    may = _processor("satellite", "2026-05", coverage=_empty_coverage("2026-05"))
     april = _processor("satellite", "2026-04")
     collector = Mock()
-    collector.collect.side_effect = [
-        [_result(june, DataCompleteness.EMPTY)],
-        [_result(may, DataCompleteness.EMPTY)],
-        [_result(april, DataCompleteness.COMPLETE)],
-    ]
+    collector.collect.return_value = [_result(april, DataCompleteness.COMPLETE)]
     by_month = {"2026-06": [june], "2026-05": [may], "2026-04": [april]}
 
     selected = AutomaticEndMonthSelector(collector).select(
@@ -123,15 +143,15 @@ def test__select__incomplete_candidate_and_gap__tries_exact_earlier_months() -> 
     )
 
     assert selected == arrow.get("2026-04-01")
-    assert collector.collect.call_count == 3
+    collector.collect.assert_called_once_with([april], allow_missing_required=True)
 
 
 def test__select__no_complete_candidate_within_inclusive_lag__raises_details() -> None:
-    candidates = [_processor("satellite", month) for month in ("2026-06", "2026-05")]
-    collector = Mock()
-    collector.collect.side_effect = [
-        [_result(processor, DataCompleteness.EMPTY)] for processor in candidates
+    candidates = [
+        _processor("satellite", month, coverage=_empty_coverage(month))
+        for month in ("2026-06", "2026-05")
     ]
+    collector = Mock()
     by_month = {
         processor.get_config_metadata().hive_path.require_key("month"): [processor]
         for processor in candidates
@@ -143,6 +163,8 @@ def test__select__no_complete_candidate_within_inclusive_lag__raises_details() -
             latest_candidate=arrow.get("2026-06-01"),
             max_data_lag_months=1,
         )
+
+    collector.collect.assert_not_called()
 
 
 def test__select__operational_failure__is_not_treated_as_missing_data() -> None:
@@ -200,13 +222,10 @@ def test__coordinator__explicit_month__persists_before_returning() -> None:
 
 
 def test__coordinator__automatic_month__selects_and_persists_before_returning() -> None:
-    june = _processor("satellite", "2026-06")
+    june = _processor("satellite", "2026-06", coverage=_empty_coverage("2026-06"))
     may = _processor("satellite", "2026-05")
     collector = Mock()
-    collector.collect.side_effect = [
-        [_result(june, DataCompleteness.EMPTY)],
-        [_result(may, DataCompleteness.COMPLETE)],
-    ]
+    collector.collect.return_value = [_result(may, DataCompleteness.COMPLETE)]
     candidate_pipeline_factory = Mock()
     candidate_pipeline_factory.side_effect = lambda month: (
         [june] if month.format("YYYY-MM") == "2026-06" else [may]
@@ -246,3 +265,67 @@ def test__coordinator__invalid_resolved_range__does_not_persist() -> None:
         )
 
     store.write.assert_not_called()
+
+
+def test__select__definitive_probe_miss__does_not_collect() -> None:
+    processor = _processor("satellite", "2026-06", coverage=_empty_coverage("2026-06"))
+    collector = Mock()
+
+    with pytest.raises(StaleDataError, match="2026-06: satellite"):
+        AutomaticEndMonthSelector(collector).select(
+            candidate_pipeline_factory=lambda _candidate: [processor],
+            latest_candidate=arrow.get("2026-06-01"),
+            max_data_lag_months=0,
+        )
+
+    collector.collect.assert_not_called()
+
+
+def test__select__unknown_probe__still_collects() -> None:
+    processor = _processor("satellite", "2026-06", coverage=_unknown_coverage("2026-06"))
+    collector = Mock()
+    collector.collect.return_value = [_result(processor, DataCompleteness.COMPLETE)]
+
+    selected = AutomaticEndMonthSelector(collector).select(
+        candidate_pipeline_factory=lambda _candidate: [processor],
+        latest_candidate=arrow.get("2026-06-01"),
+        max_data_lag_months=0,
+    )
+
+    assert selected == arrow.get("2026-06-01")
+    collector.collect.assert_called_once_with([processor], allow_missing_required=True)
+
+
+def test__select__collection_incomplete_after_probe__tries_earlier_month() -> None:
+    june = _processor("satellite", "2026-06")
+    may = _processor("satellite", "2026-05")
+    collector = Mock()
+    collector.collect.side_effect = [
+        [_result(june, DataCompleteness.EMPTY)],
+        [_result(may, DataCompleteness.COMPLETE)],
+    ]
+    by_month = {"2026-06": [june], "2026-05": [may]}
+
+    selected = AutomaticEndMonthSelector(collector).select(
+        candidate_pipeline_factory=lambda candidate: by_month[candidate.format("YYYY-MM")],
+        latest_candidate=arrow.get("2026-06-01"),
+        max_data_lag_months=1,
+    )
+
+    assert selected == arrow.get("2026-05-01")
+    assert collector.collect.call_count == 2
+
+
+def test__select__probe_exception__is_not_treated_as_missing_data() -> None:
+    processor = _processor("satellite", "2026-06")
+    processor.probe_coverage.side_effect = RuntimeError("authentication failed")
+    collector = Mock()
+
+    with pytest.raises(RuntimeError, match="authentication failed"):
+        AutomaticEndMonthSelector(collector).select(
+            candidate_pipeline_factory=lambda _candidate: [processor],
+            latest_candidate=arrow.get("2026-06-01"),
+            max_data_lag_months=3,
+        )
+
+    collector.collect.assert_not_called()

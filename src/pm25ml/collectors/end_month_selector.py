@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pm25ml.collectors.availability import probe_pipelines
+from pm25ml.collectors.coverage import constrains_end_month
 from pm25ml.logging import logger
 from pm25ml.setup.date_params import TemporalConfig
 from pm25ml.setup.end_month import EndMonthStore, StaleDataError, latest_completed_month
@@ -48,6 +50,16 @@ class AutomaticEndMonthSelector:
                 continue
 
             logger.info("Checking automatic END_MONTH candidate %s", candidate_id)
+            probe_blockers = self._probe_blockers(candidate_processors, candidate)
+            if probe_blockers:
+                attempted[candidate_id] = probe_blockers
+                logger.warning(
+                    "Automatic END_MONTH candidate %s is incomplete for: %s",
+                    candidate_id,
+                    ", ".join(probe_blockers),
+                )
+                continue
+
             results = self.collector.collect(
                 candidate_processors,
                 allow_missing_required=True,
@@ -75,11 +87,21 @@ class AutomaticEndMonthSelector:
     @staticmethod
     def _constrains_candidate(processor: ExportPipeline, candidate_id: str) -> bool:
         config = processor.get_config_metadata()
-        return (
-            config.hive_path.metadata.get("month") == candidate_id
-            and not config.allows_missing_data
-            and config.constrains_end_month
+        return config.hive_path.metadata.get("month") == candidate_id and constrains_end_month(
+            config
         )
+
+    @staticmethod
+    def _probe_blockers(
+        processors: Collection[ExportPipeline],
+        candidate: Arrow,
+    ) -> list[str]:
+        blockers = [
+            config.hive_path.require_key("dataset")
+            for config, coverage in probe_pipelines(processors)
+            if coverage.covers_month(candidate) is False
+        ]
+        return sorted(set(blockers))
 
     @staticmethod
     def _blocking_datasets(results: Collection[UploadResult]) -> list[str]:

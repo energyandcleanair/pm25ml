@@ -38,9 +38,7 @@ def mock_earth_access__data_available():
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
-        patch(
-            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
-        ) as mock_search_data,
+        patch("pm25ml.collectors.ned.granule_search.earthaccess.search_data") as mock_search_data,
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,
@@ -63,9 +61,7 @@ def mock_earth_access__no_dataset():
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
-        patch(
-            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
-        ) as mock_search_data,
+        patch("pm25ml.collectors.ned.granule_search.earthaccess.search_data") as mock_search_data,
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,
@@ -86,9 +82,7 @@ def mock_earth_access__too_many_datasets():
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
-        patch(
-            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
-        ) as mock_search_data,
+        patch("pm25ml.collectors.ned.granule_search.earthaccess.search_data") as mock_search_data,
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,
@@ -110,9 +104,7 @@ def mock_earth_access__dataset_available_wrong_number_of_granules():
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
-        patch(
-            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
-        ) as mock_search_data,
+        patch("pm25ml.collectors.ned.granule_search.earthaccess.search_data") as mock_search_data,
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,
@@ -135,9 +127,7 @@ def mock_earth_access__dataset_available_no_granules():
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_datasets"
         ) as mock_search_datasets,
-        patch(
-            "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.search_data"
-        ) as mock_search_data,
+        patch("pm25ml.collectors.ned.granule_search.earthaccess.search_data") as mock_search_data,
         patch(
             "pm25ml.collectors.ned.data_retriever_harmony.earthaccess.get_edl_token"
         ) as mock_get_edl_token,

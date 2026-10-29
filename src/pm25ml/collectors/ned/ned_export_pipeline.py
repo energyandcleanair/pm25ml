@@ -10,6 +10,7 @@ import xarray
 from arrow import Arrow
 from polars import DataFrame
 
+from pm25ml.collectors.coverage import CoverageProbeResult, dates_from_arrows
 from pm25ml.collectors.export_pipeline import (
     ExportPipeline,
     PipelineConfig,
@@ -21,6 +22,8 @@ from pm25ml.collectors.ned.errors import NedMissingDataError
 from pm25ml.logging import logger
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from pm25ml.collectors.archive_storage import IngestArchiveStorage
     from pm25ml.collectors.grid import Grid
     from pm25ml.collectors.ned.data_readers import NedDataReader, NedDayData
@@ -255,6 +258,19 @@ class NedExportPipeline(ExportPipeline):
             on=["date", "grid_id"],
             how="full",
             coalesce=True,
+        )
+
+    def requested_dates(self) -> frozenset[date]:
+        """Return the calendar days this pipeline is configured to collect."""
+        return dates_from_arrows(
+            self.dataset_descriptor.start_date,
+            self.dataset_descriptor.end_date,
+        )
+
+    def probe_coverage(self) -> CoverageProbeResult:
+        """Search for Earthdata granules without downloading or subsetting."""
+        return self.dataset_retriever.probe_coverage(
+            dataset_descriptor=self.dataset_descriptor,
         )
 
     def get_config_metadata(self) -> PipelineConfig:

@@ -5,9 +5,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
+from pm25ml.collectors.coverage import CoverageProbeResult
 from pm25ml.hive_path import HivePath
+
+if TYPE_CHECKING:
+    from datetime import date
 
 AvailableIdKeys = Literal["date", "grid_id"]
 AVAILABLE_ID_KEY_NAMES: list[AvailableIdKeys] = ["date", "grid_id"]
@@ -41,6 +45,19 @@ class ExportPipeline(ABC):
 
         This method should be overridden by subclasses to provide the expected result.
         """
+
+    def probe_coverage(self) -> CoverageProbeResult:
+        """
+        Return metadata-only coverage for this pipeline's requested dates.
+
+        Collectors that cannot check availability without downloading data report
+        unknown coverage. This must not start collection, processing, or uploads.
+        """
+        return CoverageProbeResult.unknown(self.requested_dates())
+
+    def requested_dates(self) -> frozenset[date]:
+        """Return the calendar days this pipeline is configured to collect."""
+        return frozenset()
 
 
 @dataclass(frozen=True)
