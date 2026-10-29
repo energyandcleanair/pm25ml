@@ -51,7 +51,7 @@ def test__format_resolved_model_run_ref__puts_ref_on_its_own_line() -> None:
 
     assert "Using MODEL_RUN_REF" in text
     assert "\nrel-2026-10-r0_s-1.0_mb-1.2.0\n" in text
-    assert "docs/VERSIONING.md" in text
+    assert "docs/versioning.md" in text
 
 
 def test__parse_model_run_ref__rejects_legacy_bundle() -> None:

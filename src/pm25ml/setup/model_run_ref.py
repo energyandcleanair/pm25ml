@@ -1,7 +1,7 @@
 """
 Allocate and validate the model-run filename suffix.
 
-The published field meanings live in ``docs/VERSIONING.md``. This module only
+The published field meanings live in ``docs/versioning.md``. This module only
 formats, parses, and persists those fields for a pipeline execution.
 """
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from fsspec import AbstractFileSystem
 
-VERSIONING_DOC = "docs/VERSIONING.md"
+VERSIONING_DOC = "docs/versioning.md"
 RESERVATION_FILENAME = ".reserved"
 BUNDLE_SOURCE_RELEASE = "release"
 BUNDLE_SOURCE_COMMIT = "commit"

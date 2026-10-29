@@ -5,8 +5,8 @@ description = "Create daily PM2.5 rasters for India."
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 package-mode = true
-include = [
-    "src"
+packages = [
+    { include = "pm25ml", from = "src" },
 ]
 exclude = [
     "**/*__test.py",
@@ -76,12 +76,20 @@ gcsfs = "^2025.3.2"
 sqlalchemy = "^2.0.40"
 psycopg2 = "^2.9.10"
 geopandas = "^1.1.0"
-gdal = "3.6.2"
+gdal = ">=3.6.2"
 pydap = "^3.5.5"
 owslib = "^0.34.1"
 altair = "^5.4.0"
 cartopy = "^0.25.0"
 exactextract = "^0.3.0"
+
+[tool.poetry.group.publish.dependencies]
+rasterio = "^1.4"
+rioxarray = "^0.18.2"
+matplotlib = "^3.9"
+markdown = "^3.7"
+pyyaml = "^6.0.3"
+crea-graphics = { git = "https://github.com/energyandcleanair/crea_graphics_python.git", rev = "1d6b468a0afd853004ba4255cb2baea0b724bd2c" }
 
 [tool.poetry.group.reference.dependencies]
 pandas = "^2.2.3"
@@ -101,7 +109,8 @@ markers = [
 ]
 python_files = [ "*__test.py", "*__it.py" ]
 testpaths = [
-    "src/pm25ml"
+    "src/pm25ml",
+    "test/architecture",
 ]
 pythonpath = "."
 env_files = [
@@ -113,10 +122,13 @@ env_files = [
 include = [
     "pyproject.toml",
     "./src/pm25ml/**/*.py",
+    "./src/publish/**/*.py",
 ]
 exclude = [
     "./src/pm25ml/**/*__test.py",
     "./src/pm25ml/**/*__it.py",
+    "./src/publish/**/*__test.py",
+    "./src/publish/**/*__it.py",
 ]
 line-length = 100
 
@@ -140,6 +152,12 @@ module = [
     "pyarrow.*",
     "sklearn.*",
     "google.cloud.storage.*",
-    "daal4py.*"
+    "daal4py.*",
+    "rasterio.*",
+    "rioxarray.*",
+    "matplotlib.*",
+    "crea_graphics.*",
+    "markdown",
+    "yaml",
 ]
 ignore_missing_imports = true

@@ -9,6 +9,7 @@ output/
 tmp
 .env
 .cache
+publish-*.json
 
 experiments/notebooks/outputs
 experiments/notebooks/inputs

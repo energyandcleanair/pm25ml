@@ -21,7 +21,7 @@ COPY pyproject.toml poetry.lock ./
 
 RUN poetry install --only=main --no-root
 
-COPY src/pm25ml/ ./pm25ml/
+COPY src/pm25ml/ ./src/pm25ml/
 COPY README.md ./
 
 RUN poetry build && poetry run pip install --no-deps dist/*.whl

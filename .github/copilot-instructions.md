@@ -24,7 +24,7 @@ This project includes all of the code to:
 
 ## Banned technologies
 
- - GDAL
+ - GDAL, except through Rasterio wheels in `src/publish` and the Poetry `publish` group
 
 ## Naming conventions
 

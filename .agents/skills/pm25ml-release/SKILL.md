@@ -17,7 +17,7 @@ notes. Do not bump `pyproject.toml` or add a separate version commit.
 
 Publishing `X.Y.Z` is what updates `pm25ml-orchestrator-release`. Operators do
 not pass `model_bundle` when they execute either workflow. Retraining is a
-`rel` change, not a model-bundle bump. See `docs/VERSIONING.md`.
+`rel` change, not a model-bundle bump. See `docs/versioning.md`.
 
 ## Version number
 

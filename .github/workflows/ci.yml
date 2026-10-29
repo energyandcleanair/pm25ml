@@ -138,6 +138,35 @@ jobs:
             exit 1
           } || echo "✅ gdal not found in dependencies."
 
+  publish-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache poetry install
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: poetry-${{ env.POETRY_VERSION }}-${{ env.PYTHON_VERSION }}
+      - uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Cache publish dependencies
+        id: cache-publish-deps
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: pydeps-publish-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install publish dependencies
+        run: poetry install --no-interaction --with publish
+        if: steps.cache-publish-deps.outputs.cache-hit != 'true'
+      - name: Run publish tests
+        run: PYTHONPATH=src poetry run pytest src/publish
+
   lint:
     runs-on: ubuntu-latest
     steps:

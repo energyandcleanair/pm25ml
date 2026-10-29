@@ -1,0 +1,49 @@
+# Zenodo deposit metadata applied to each new unpublished version.
+# Description comes from docs/dataset.md. Additional notes come from docs/versioning.md.
+# docs/disclaimer.md is appended to both. Version comes from the model-run ref.
+# publication_date is set at release.
+
+title: "South Asia PM2.5 map: India | Data"
+upload_type: dataset
+access_right: open
+license: cc-by-4.0
+imprint_publisher: Centre for Research on Energy and Clean Air
+
+creators:
+  - name: Rushwood, Panda
+    affiliation: Centre for Research on Energy and Clean Air
+  - name: Gierens, Rosa
+    affiliation: Centre for Research on Energy and Clean Air
+    orcid: "0000-0002-3879-3099"
+  - name: Kawano, Ayako
+    affiliation: Stanford University
+    orcid: "0000-0003-4054-1111"
+  - name: Thieriot, Hubert
+    affiliation: Centre for Research on Energy and Clean Air
+
+custom:
+  code:codeRepository: https://github.com/energyandcleanair/pm25ml
+  code:programmingLanguage:
+    - id: python
+      title:
+        en: Python
+  code:developmentStatus:
+    id: active
+    title:
+      en: Active
+
+references:
+  - Kawano, A., Kelp, M., Qiu, M., Singh, K., Chaturvedi, E., Dahiya, S., … Burke, M. (2025). Improved daily PM2.5 estimates in India reveal inequalities in recent enhancement of air quality. Science Advances, 11(4), eadq1071. https://doi.org/10.1126/sciadv.adq1071
+  - Kawano, A., Kelp, M., Qiu, M., Singh, K., Chaturvedi, E., DAHIYA, S., Azevedo, I., & Burke, M. (2024). High-Quality Daily PM2.5 Datasets for India at 10 km Resolution (Version 2) [Data set]. Science Advances. https://doi.org/10.5281/zenodo.13694585
+  - "Centre for Research on Energy and Clean Air (CREA) (n/d). pm25ml: PM2.5 Estimation for India. [Computer software] https://github.com/energyandcleanair/pm25ml (Licensed under the MIT license)."
+  - Central Pollution Control Board (CPCB) (n.d.). Ambient PM₂.₅ measurements from CPCB Continuous Air Quality Monitoring Stations (CAAQMS) [Data set]. CPCB, India. https://airquality.cpcb.gov.in/ccr Accessed and daily-aggregated via Centre for Research on Energy and Clean Air (CREA) API.
+  - "European Space Agency, Copernicus Sentinel-5P (n.d.). Sentinel-5P OFFL L3 CO: Offline Carbon Monoxide [Data set]. Google Earth Engine Data Catalog. Accessed from https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S5P_OFFL_L3_CO"
+  - "European Space Agency, Copernicus Sentinel-5P (n.d.). Sentinel-5P OFFL L3 NO₂: Offline nitrogen dioxide [Data set]. Google Earth Engine Data Catalog. Accessed from https://developers.google.com/earth-engine/datasets/catalog/COPERNICUS_S5P_OFFL_L3_NO2"
+  - Friedl, M. & Sulla-Menashe, D. (2022). MODIS/Terra + Aqua Land Cover Type Yearly L3 Global 500 m SIN Grid (MCD12Q1), Version 6.1 [Data set]. NASA Land Processes DAAC. https://doi.org/10.5067/MODIS/MCD12Q1.061 Accessed via Google Earth Engine as MODIS/061/MCD12Q1.
+  - "Global Modeling and Assimilation Office (GMAO). (2015). MERRA-2 inst3_3d_chm_Nv: 3d,3-Hourly, Instantaneous, Model-Level, Assimilation, Carbon Monoxide and Ozone Mixing Ratio (M2I3NVCHM) Version 5.12.4 [Data set]. NASA GES DISC. https://doi.org/10.5067/HO9OVZWF3KW2 Accessed via NASA GES DISC through Harmony Subsetter API."
+  - "Global Modeling and Assimilation Office (GMAO). (2015). MERRA-2 tavg1_2d_aer_Nx: 2d,1-Hourly, Time-averaged, Single-Level, Assimilation, Aerosol Diagnostics (M2T1NXAER), Version 5.12.4 [Data set]. NASA GES DISC. https://doi.org/10.5067/KLICLTZ8EM9D Accessed via NASA GES DISC through Harmony Subsetter API."
+  - Kawano, A., Kelp, M., Qiu, M., Singh, K., Chaturvedi, E., Dahiya, S., Azevedo, I., & Burke, M. (2024). High-Quality Daily PM₂.₅ Datasets for India at 10 km Resolution (Version 2) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.13694585
+  - Krotkov, N. A., Lamsal, L. N., Marchenko, S. V., Fisher, B. L., Bucsela, E. J., Fasnacht, Z., Yang, E.-S., Qin, W., Vasilkov, A., Li, C., Joiner, J., Choi, S., & Swartz, W. H. (2024). OMI/Aura NO2 Cloud-Screened Total and Tropospheric Column L3 Global Gridded 0.25 degree × 0.25 degree, Version 004. [Data set]. NASA GES DISC. https://doi.org/10.5067/Aura/OMI/DATA3407 Accessed via NASA GES DISC through the Earthdata API
+  - Lyapustin, A. & Wang, Y. (2022). MODIS/Terra+Aqua Land Aerosol Optical Depth Daily L2G Global 1km SIN Grid (MCD19A2), Version 6.1 [Data set]. NASA Land Processes DAAC. https://doi.org/10.5067/MODIS/MCD19A2.061 Accessed via Google Earth Engine as MODIS/061/MCD19A2_GRANULES.
+  - "Muñoz Sabater, J. (2019): ERA5-Land hourly data from 1950 to present [Data set]. Copernicus Climate Change Service (C3S) Climate Data Store (CDS). https://doi.org/10.24381/cds.e2161bac Accessed via Google Earth Engine as ECMWF/ERA5_LAND/DAILY_AGGR."
+  - NASA Jet Propulsion Laboratory. (2013). NASA Shuttle Radar Topography Mission (SRTM) Global 1 arc second, Version 3.0 (SRTMGL1 v003) [Data set]. NASA Land Processes DAAC. https://doi.org/10.5067/MEASURES/SRTM/SRTMGL1.003  Accessed via Google Earth Engine as USGS/SRTMGL1_003.

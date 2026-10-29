@@ -1,0 +1,2 @@
+[installer]
+only-binary = ["rasterio", "gdal"]

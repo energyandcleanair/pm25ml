@@ -1,4 +1,4 @@
-### Data versioning
+# Data versioning
 
 For each release, we provide versioning information to ensure every filename identifies when it was released, which schema it follows, and which model generated it. Major versions indicate breaking or significant changes in the schema or model.
 

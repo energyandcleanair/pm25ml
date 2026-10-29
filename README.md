@@ -13,6 +13,8 @@ Stanford University, and built by the Centre for Research on Energy and Clean Ai
 ## Project layout
 
 The `src/pm25ml` is where most of the code for this project can be found.
+`src/publish` prepares and releases a finished dataset (map assets, Zenodo, and
+the website). It is a sibling of `pm25ml` and is not part of the pipeline image.
 
 We have additional directories:
  - `experiments`: Experiments to inform implementation and to understand reference code.
@@ -32,13 +34,15 @@ To start understanding the code, we suggest that you also read the "Environment"
 
 ### Dependencies
 
-We use different poetry groups to manage the dependencies: `main` (default), `dev`, `experiment`,
-and `reference`. `experiment` and `reference` are used for the `experiments` and `reference` directories.
-When adding dependencies, make sure you add them to the correct group.
+We use different poetry groups to manage the dependencies: `main` (default), `dev`, `publish`,
+`experiment`, and `reference`. `experiment` and `reference` are used for the `experiments` and
+`reference` directories. `publish` is used only for `src/publish`. When adding dependencies, make
+sure you add them to the correct group.
 
 > [!IMPORTANT]
-> Do not add any dependencies that use GDAL to the project. We avoid GDAL to simplify the environment
-> for running the code.
+> Do not add GDAL-related dependencies to `main` or `dev`. The pipeline image stays GDAL-free.
+> Rasterio wheels (which bundle GDAL) are allowed only in the `publish` group and `src/publish`.
+> Poetry is configured to install `rasterio` and `gdal` from binary wheels only.
 
 ### Testing
 
@@ -130,7 +134,7 @@ TAKE_MINI_TRAINING_SAMPLE=true
 SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX=^era5_land__.*$
 
 # Optional: overwrite a previous local run. When omitted, s000_resolve_model_run_ref
-# generates a short rel-<8 hex> id. See docs/VERSIONING.md.
+# generates a short rel-<8 hex> id. See docs/versioning.md.
 # MODEL_RUN_REF=rel-7f3a9c2e_s-1.0_mb-local-<git-sha>
 ```
 
@@ -145,6 +149,50 @@ To make sure your code meets our code standards, install the [`pre-commit`](http
 configuration provided so that your code is checked before committing:
 1. Install `pre-commit`, if you haven't already
 2. [Install the git hook scripts](https://pre-commit.com/#3-install-the-git-hook-scripts)
+
+## Publishing a dataset
+
+After a production pipeline run has written its NetCDF and CV summary, prepare the public
+components and then release them together.
+
+Install the publish extra (this pulls Rasterio wheels; it is not needed to run the pipeline):
+
+```
+poetry install --with publish
+```
+
+Prepare uploads a versioned map prefix, creates an unpublished Zenodo version, and opens a
+website pull request. This does **not** switch the live map index. The new Zenodo version is
+filled from version-controlled docs: description from [`docs/dataset.md`](docs/dataset.md),
+additional notes from [`docs/versioning.md`](docs/versioning.md), the map disclaimer from
+[`docs/disclaimer.md`](docs/disclaimer.md) on both of those fields, and creators, license,
+references, and other deposit fields from [`docs/zenodo.yaml`](docs/zenodo.yaml). Those
+Markdown files are not attached as extra files. Previously published Zenodo versions are left
+unchanged.
+
+```
+PYTHONPATH=src poetry run python -m publish prepare rel-YYYY-MM-rT_s-X.Y_mb-X.Y.Z
+```
+
+Optional `--netcdf` and `--cv-summary` skip the GCS download. The command writes
+`publish-<ref>.json` in the current directory (gitignored). Re-running prepare reuses the
+Zenodo draft and the same pull-request branch.
+
+When you are ready for the three components to go live:
+
+```
+PYTHONPATH=src poetry run python -m publish release rel-YYYY-MM-rT_s-X.Y_mb-X.Y.Z
+```
+
+Release publishes the Zenodo record, copies that version's `metadata.json` and
+`color_scale.json` over the live files at the website-assets bucket root, and merges the
+website pull request. It stops at the first failure and reports which steps already completed.
+
+You need:
+- `FINAL_RESULT_BUCKET_NAME` and `PIPELINE_PROFILE` (defaults to `india`) unless you pass local files
+- `ZENODO_TOKEN` with `deposit:write` and `deposit:actions` (`ZENODO_API_URL` can point at the sandbox)
+- Google Cloud application-default credentials that can read the result bucket and write the website-assets bucket
+- `GITHUB_TOKEN` with write access to `energyandcleanair/southasia-pm2-5`
 
 ## Environment
 
@@ -178,7 +226,7 @@ Cloud runs use two Workflows deployments rendered from `infra/workflow.yaml`:
 - `pm25ml-orchestrator-release` follows the image `pm25ml:vX.Y.Z` and records `mb-X.Y.Z`.
 
 Operators do not pass a model bundle. Optional `model_run_ref` resumes a production run
-or overwrites a commit/local run. The filename schema is in `docs/VERSIONING.md`.
+or overwrites a commit/local run. The filename schema is in `docs/versioning.md`.
 The first stage is `s000_resolve_model_run_ref`; later stages load that value.
 
 The release orchestrator posts each stage's start, duration, and failure to
