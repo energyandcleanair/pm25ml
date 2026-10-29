@@ -6859,4 +6859,4 @@ test = ["coverage (>=7.10)", "hypothesis", "mypy", "numpydoc", "packaging", "pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "ec3faa90b380c39825506daef74d10d902ffec769785b554fd408b6825ad8f26"
+content-hash = "68cd8b36178610d176795c4dfcb07cbb7f79f42b721a2799c22ef8a7d492fc93"

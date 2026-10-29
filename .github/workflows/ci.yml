@@ -162,7 +162,7 @@ jobs:
           path: .venv
           key: pydeps-publish-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install publish dependencies
-        run: poetry install --no-interaction --with publish
+        run: poetry install --no-interaction --only main,dev,publish
         if: steps.cache-publish-deps.outputs.cache-hit != 'true'
       - name: Run publish tests
         run: PYTHONPATH=src poetry run pytest src/publish

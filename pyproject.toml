@@ -61,6 +61,9 @@ scipy-stubs = "^1.16.0.2"
 pytest-dotenv = "^0.5.2"
 pyyaml = "^6.0.3"
 
+[tool.poetry.group.experiment]
+optional = true
+
 [tool.poetry.group.experiment.dependencies]
 earthaccess = "^0.14.0"
 xarray = "^2025.3.1"
@@ -83,6 +86,9 @@ altair = "^5.4.0"
 cartopy = "^0.25.0"
 exactextract = "^0.3.0"
 
+[tool.poetry.group.publish]
+optional = true
+
 [tool.poetry.group.publish.dependencies]
 rasterio = "^1.4"
 rioxarray = "^0.18.2"
@@ -90,6 +96,9 @@ matplotlib = "^3.9"
 markdown = "^3.7"
 pyyaml = "^6.0.3"
 crea-graphics = { git = "https://github.com/energyandcleanair/crea_graphics_python.git", rev = "1d6b468a0afd853004ba4255cb2baea0b724bd2c" }
+
+[tool.poetry.group.reference]
+optional = true
 
 [tool.poetry.group.reference.dependencies]
 pandas = "^2.2.3"
