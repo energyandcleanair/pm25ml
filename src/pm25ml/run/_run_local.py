@@ -1,15 +1,14 @@
 """
 Run the PM2.5 pipeline locally with an optional continue_from step.
 
-Behavior: run the specified step and all subsequent steps; skip those before.
+Behavior: always resolve MODEL_RUN_REF first, then run the specified step and
+all subsequent steps.
 """
 
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from runpy import run_module
 
 
@@ -23,7 +22,8 @@ def _ordered_steps() -> list[Step]:
     """Return ordered list of (canonical_step_key, module_path)."""
     base = "pm25ml.run"
     return [
-        Step("s000_preflight", f"{base}.s000_preflight"),
+        Step("s000_resolve_model_run_ref", f"{base}.s000_resolve_model_run_ref"),
+        Step("s001_preflight", f"{base}.s001_preflight"),
         Step("s005_discover", f"{base}.s005_discover"),
         Step("s010_fetch_and_combine", f"{base}.s010_fetch_and_combine"),
         Step("s020_generate_features", f"{base}.s020_generate_features"),
@@ -35,14 +35,19 @@ def _ordered_steps() -> list[Step]:
         Step("s060_prep_for_full_model", f"{base}.s060_prep_for_full_model"),
         Step("s070_train_full_model", f"{base}.s070_train_full_model"),
         Step("s080_predict_full_model", f"{base}.s080_predict_full_model"),
+        Step("s090_outputs", f"{base}.s090_outputs"),
     ]
 
 
 _steps = tuple(_ordered_steps())
 _aliases: dict[str, str] = {
-    "preflight": "s000_preflight",
-    "s00_preflight": "s000_preflight",
-    "s000_preflight": "s000_preflight",
+    "resolve": "s000_resolve_model_run_ref",
+    "resolve_model_run_ref": "s000_resolve_model_run_ref",
+    "s000_resolve_model_run_ref": "s000_resolve_model_run_ref",
+    "preflight": "s001_preflight",
+    "s00_preflight": "s001_preflight",
+    "s000_preflight": "s001_preflight",
+    "s001_preflight": "s001_preflight",
     "discover": "s005_discover",
     "s005_discover": "s005_discover",
     "discover_and_collect": "s005_discover",
@@ -77,14 +82,12 @@ _aliases: dict[str, str] = {
     "predict_full_model": "s080_predict_full_model",
     "s08_predict_full_model": "s080_predict_full_model",
     "s080_predict_full_model": "s080_predict_full_model",
+    "output_results": "s090_outputs",
+    "s090_outputs": "s090_outputs",
 }
 
 
 def _main(continue_from: str) -> None:
-    os.environ.setdefault(
-        "MODEL_RUN_REF",
-        datetime.now(timezone.utc).strftime("%Y-%m-%d+%H-%M-%S"),
-    )
     start_key = _resolve_continue_from(continue_from)
     _run_steps_from(start_key)
 
@@ -100,7 +103,9 @@ def _resolve_continue_from(continue_from: str) -> str:
 
 
 def _run_steps_from(step_key: str) -> None:
-    start_index = _identify_start_index(step_key)
+    resolve_step = _steps[0]
+    run_module(resolve_step.module, run_name="__main__")
+    start_index = max(_identify_start_index(step_key), 1)
 
     for step in _steps[start_index:]:
         run_module(step.module, run_name="__main__")

@@ -1,3 +1,9 @@
+# Template rendered by .ci/scripts/render_release_workflow.py
+# Tokens below are __NAME__ forms of:
+#   PM25ML_JOB_NAME       commit: pm25ml     release: pm25ml-release
+#   PM25ML_IMAGE_TAG      commit: latest     release: X.Y.Z
+#   PM25ML_BUNDLE_SOURCE  commit: commit     release: release
+#   PM25ML_MODEL_BUNDLE   commit: (empty)    release: mb-X.Y.Z
 main:
   params: [args]
   steps:
@@ -24,19 +30,8 @@ main:
             next: set_in_bd_profile_env
         next: invalid_profile
 
-    - validate_model_run_ref:
-        switch:
-          - condition: ${ map.get(args, "model_run_ref") == null }
-            next: missing_model_run_ref
-          - condition: ${ string(map.get(args, "model_run_ref")) == "" }
-            next: missing_model_run_ref
-        next: build_common_env
-
     - missing_profile:
         raise: "Missing required workflow arg: profile"
-
-    - missing_model_run_ref:
-        raise: "Missing required workflow arg: model_run_ref"
 
     - invalid_profile:
         raise: '${ "Invalid profile value: " + string(profile) + ". Expected one of: india, in-bd" }'
@@ -44,20 +39,22 @@ main:
     - set_india_profile_env:
         assign:
           - profile_env: ${ india_profile_env }
-        next: validate_model_run_ref
+        next: build_common_env
 
     - set_in_bd_profile_env:
         assign:
           - profile_env: ${ in_bd_profile_env }
-        next: validate_model_run_ref
+        next: build_common_env
 
     - build_common_env:
         assign:
-          - model_run_ref: ${ map.get(args, "model_run_ref") }
           - common_env:
               GCP_PROJECT: vital-form-455413-p8
               PIPELINE_PROFILE: ${profile}
-              MODEL_RUN_REF: ${model_run_ref}
+              MODEL_RUN_REF: ${ default(map.get(args, "model_run_ref"), "") }
+              PM25ML_BUNDLE_SOURCE: __PM25ML_BUNDLE_SOURCE__
+              MODEL_BUNDLE: "__PM25ML_MODEL_BUNDLE__"
+              PM25ML_ALLOCATION_ID: ${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}
               GEE_GRID_ASSET_PATH: ${profile_env.GEE_GRID_ASSET_PATH}
               PROFILE_GRID_CELL_COUNT: ${profile_env.PROFILE_GRID_CELL_COUNT}
               PM25_SOURCE_IDS: ${profile_env.PM25_SOURCE_IDS}
@@ -73,7 +70,7 @@ main:
               END_MONTH: ${ default(map.get(args, "end_month"), "") }
               MAX_DATA_LAG_MONTHS: ${ string(default(map.get(args, "max_data_lag_months"), 3)) }
               RUNNING_IN_CLOUD_BATCH: "true"
-          # Extract continue_from arg (string stage name); if empty, start at first step
+          # Extract continue_from arg (string stage name); if empty, start at first pipeline step
           - continue_from: ${ default(map.get(args, "continue_from"), "preflight") }
 
     # Convert common_env map to Cloud Run env list format [{name, value}, ...]
@@ -82,6 +79,24 @@ main:
         args:
           env_map: ${common_env}
         result: common_env_list
+
+    - resolve_model_run_ref:
+        call: googleapis.run.v1.namespaces.jobs.run
+        args:
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
+          location: europe-west1
+          connector_params:
+            timeout: 3600
+          body:
+            overrides:
+              containerOverrides:
+                - args:
+                    - python
+                    - -m
+                    - pm25ml.run.s000_resolve_model_run_ref
+                  env: ${common_env_list}
+        result: run_job_result
+        next: dispatch_continue_from
 
     # Single dispatcher: jump directly to requested starting step, else proceed from first
     - dispatch_continue_from:
@@ -116,7 +131,7 @@ main:
     - preflight:
         call: googleapis.run.v1.namespaces.jobs.run
         args:
-          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
           location: europe-west1
           connector_params:
             timeout: 3600
@@ -126,7 +141,7 @@ main:
                 - args:
                     - python
                     - -m
-                    - pm25ml.run.s000_preflight
+                    - pm25ml.run.s001_preflight
                   env: ${common_env_list}
         result: run_job_result
         next: discover
@@ -134,7 +149,7 @@ main:
     - discover:
         call: googleapis.run.v1.namespaces.jobs.run
         args:
-          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
           location: europe-west1
           connector_params:
             timeout: 86400
@@ -152,7 +167,7 @@ main:
     - collect_data_and_combine:
         call: googleapis.run.v1.namespaces.jobs.run
         args:
-          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
           location: europe-west1
           connector_params:
             timeout: 86400
@@ -186,7 +201,7 @@ main:
                 taskSpec:
                   runnables:
                     - container:
-                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:latest
+                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
                         commands:
                           - python
                           - -m
@@ -204,7 +219,7 @@ main:
     - sample:
         call: googleapis.run.v1.namespaces.jobs.run
         args:
-          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
           location: europe-west1
           connector_params:
             timeout: 10800
@@ -254,7 +269,7 @@ main:
                           taskSpec:
                             runnables:
                               - container:
-                                  imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:latest
+                                  imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
                                   commands:
                                     - python
                                     - -m
@@ -289,7 +304,7 @@ main:
                 taskSpec:
                   runnables:
                     - container:
-                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:latest
+                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
                         commands:
                           - python
                           - -m
@@ -307,7 +322,7 @@ main:
     - full_model_sample:
         call: googleapis.run.v1.namespaces.jobs.run
         args:
-          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
           location: europe-west1
           connector_params:
             timeout: 86400
@@ -324,7 +339,7 @@ main:
     - full_model_train:
         call: googleapis.run.v1.namespaces.jobs.run
         args:
-          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
           location: europe-west1
           connector_params:
             timeout: 86400
@@ -358,7 +373,7 @@ main:
                 taskSpec:
                   runnables:
                     - container:
-                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:latest
+                        imageUri: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
                         commands:
                           - python
                           - -m
@@ -375,7 +390,7 @@ main:
     - output_results:
         call: googleapis.run.v1.namespaces.jobs.run
         args:
-          name: namespaces/vital-form-455413-p8/jobs/pm25ml
+          name: namespaces/vital-form-455413-p8/jobs/__PM25ML_JOB_NAME__
           location: europe-west1
           connector_params:
             timeout: 10800

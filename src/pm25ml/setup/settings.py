@@ -10,6 +10,7 @@ import arrow
 from arrow import Arrow
 
 from pm25ml.setup.end_month import parse_max_data_lag_months
+from pm25ml.setup.model_run_ref import parse_model_run_ref
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -35,10 +36,11 @@ def _parse_bool(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _resolve_model_run_ref(value: str | None) -> str:
+def _require_model_run_ref(value: str | None) -> str:
     if value is None or not value.strip():
-        return arrow.utcnow().format("YYYY-MM-DD+HH-mm-ss")
-    return value.strip()
+        msg = "Missing required environment variable: MODEL_RUN_REF"
+        raise ValueError(msg)
+    return parse_model_run_ref(value).format()
 
 
 @dataclass(frozen=True)
@@ -124,7 +126,7 @@ class PipelineSettings:
                 values,
                 "SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX",
             ),
-            model_run_ref=_resolve_model_run_ref(values.get("MODEL_RUN_REF")),
+            model_run_ref=_require_model_run_ref(values.get("MODEL_RUN_REF")),
         )
 
 

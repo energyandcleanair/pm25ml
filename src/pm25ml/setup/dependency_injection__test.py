@@ -55,6 +55,11 @@ def test__data_artifacts__define_the_pipeline_stage_contract() -> None:
 def test__initialization__does_not_resolve_temporal_or_external_resources() -> None:
     with (
         patch.object(PipelineSettings, "from_env", return_value=_settings()),
+        patch(
+            "pm25ml.setup.dependency_injection.load_model_run_ref_for_process",
+            return_value="rel-7f3a9c2e_s-1.0_mb-local-abc",
+        ),
+        patch("pm25ml.setup.dependency_injection.apply_model_run_ref_to_environ"),
         patch.object(EndMonthStore, "read_required") as read_required,
         patch.object(EndMonthCoordinator, "resolve") as resolve,
         patch("pm25ml.setup.dependency_injection.initialize_gee") as initialize_gee,

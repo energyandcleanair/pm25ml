@@ -13,6 +13,7 @@ from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.results.final_result_writer import FinalResultWriter
 
 FILE_PREFIX = "pm25-full"
+SCHEMA_VERSION = "1.0"
 
 
 class NetCdfResultWriter(FinalResultWriter):

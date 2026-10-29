@@ -1,7 +1,5 @@
 """Tests for typed environment settings."""
 
-import re
-
 import arrow
 import pytest
 
@@ -22,7 +20,7 @@ def _environment() -> dict[str, str]:
         "PROFILE_GRID_CELL_COUNT": "33074",
         "START_MONTH": "2024-01-01",
         "SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX": "^era5_land__.*$",
-        "MODEL_RUN_REF": " run-1 ",
+        "MODEL_RUN_REF": " rel-7f3a9c2e_s-1.0_mb-local-abc123 ",
     }
 
 
@@ -32,7 +30,7 @@ def test__pipeline_settings__parses_values_and_defaults() -> None:
     assert settings.profile_id == "india"
     assert settings.grid_cell_count == 33074
     assert settings.pm25_source_ids == ("cpcb",)
-    assert settings.model_run_ref == "run-1"
+    assert settings.model_run_ref == "rel-7f3a9c2e_s-1.0_mb-local-abc123"
     assert not settings.take_mini_training_sample
 
 
@@ -73,13 +71,12 @@ def test__temporal_config_request__requires_start_month() -> None:
         TemporalConfigRequest.from_env(environment)
 
 
-def test__pipeline_settings__generates_missing_model_run_reference() -> None:
+def test__pipeline_settings__missing_model_run_reference__raises() -> None:
     environment = _environment()
     del environment["MODEL_RUN_REF"]
 
-    settings = PipelineSettings.from_env(environment)
-
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}\+\d{2}-\d{2}-\d{2}", settings.model_run_ref)
+    with pytest.raises(ValueError, match="MODEL_RUN_REF"):
+        PipelineSettings.from_env(environment)
 
 
 def test__pipeline_settings__missing_required_value__names_variable() -> None:

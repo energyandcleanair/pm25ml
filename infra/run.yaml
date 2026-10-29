@@ -1,7 +1,11 @@
+# Template rendered by .ci/scripts/render_release_workflow.py
+# Tokens below are __NAME__ forms of:
+#   PM25ML_JOB_NAME   commit: pm25ml     release: pm25ml-release
+#   PM25ML_IMAGE_TAG  commit: latest     release: X.Y.Z
 apiVersion: run.googleapis.com/v1
 kind: Job
 metadata:
-  name: pm25ml
+  name: __PM25ML_JOB_NAME__
   labels:
     cloud.googleapis.com/location: europe-west1
 spec:
@@ -12,7 +16,7 @@ spec:
       template:
         spec:
           containers:
-            - image: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:latest
+            - image: europe-west1-docker.pkg.dev/vital-form-455413-p8/pm25ml/pm25ml:__PM25ML_IMAGE_TAG__
               resources:
                 limits:
                   cpu: 8000m

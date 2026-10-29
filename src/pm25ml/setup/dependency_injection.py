@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
@@ -39,6 +40,11 @@ from pm25ml.results.final_result_storage import FinalResultStorage
 from pm25ml.sample.full_model_sampler import FullModelSampler
 from pm25ml.sample.imputation_sampler import ImputationSamplerDefinition
 from pm25ml.setup.end_month import EndMonthStore
+from pm25ml.setup.model_run_ref import (
+    apply_model_run_ref_to_environ,
+    load_model_run_ref_for_process,
+    log_resolved_model_run_ref,
+)
 from pm25ml.setup.pipelines import define_pipelines
 from pm25ml.setup.pm25_filters import define_filters
 from pm25ml.setup.result_writers import define_result_writers, define_stats_writers
@@ -470,7 +476,9 @@ def _container(settings: PipelineSettings) -> Pm25mlContainer:
 
 def init_dependencies_from_env() -> Pm25mlContainer:
     """Build static application dependencies from environment settings."""
+    model_run_ref = load_model_run_ref_for_process(os.environ)
+    apply_model_run_ref_to_environ(os.environ, model_run_ref)
     settings = PipelineSettings.from_env()
     container = _container(settings)
-    logger.info("Using MODEL_RUN_REF: %s", settings.model_run_ref)
+    log_resolved_model_run_ref(settings.model_run_ref)
     return container

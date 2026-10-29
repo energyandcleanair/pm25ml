@@ -92,7 +92,7 @@ PIPELINE_PROFILE=india
 GEE_GRID_ASSET_PATH=projects/<gcp-project>/assets/grid_india_10km_shapefile
 PROFILE_GRID_CELL_COUNT=33074
 
-# Optional: when GEE_GRID_ASSET_PATH does not exist, s000_preflight will upload
+# Optional: when GEE_GRID_ASSET_PATH does not exist, s001_preflight will upload
 # this local zip to GCS and ingest it as a table asset.
 # GRID_SHAPEFILE_ZIP_PATH=assets/india/grid_10km_shapefiles.zip
 # Optional: use an already staged zip in GCS instead of uploading from local disk.
@@ -128,6 +128,10 @@ MAX_DATA_LAG_MONTHS=3
 TAKE_MINI_TRAINING_SAMPLE=true
 
 SPATIAL_COMPUTATION_VALUE_COLUMN_REGEX=^era5_land__.*$
+
+# Optional: overwrite a previous local run. When omitted, s000_resolve_model_run_ref
+# generates a short rel-<8 hex> id. See docs/VERSIONING.md.
+# MODEL_RUN_REF=rel-7f3a9c2e_s-1.0_mb-local-<git-sha>
 ```
 
 See the [*Environment* section](#Environment) for more details on the environment's dependencies.
@@ -168,9 +172,17 @@ compute. We aim to only provision compute on-demand to avoid high compute costs.
 
 ### Entrypoint
 
-For the entrypoint for the workflows, see `infra/workflow.yaml`. This workflow triggers
-individual stages (`src/pm25ml/run/s*`), which rely on dependency injection to get
-their dependencies.
+Cloud runs use two Workflows deployments rendered from `infra/workflow.yaml`:
+
+- `pm25ml-orchestrator` follows `pm25ml:latest` and records `mb-local-<commit sha>`.
+- `pm25ml-orchestrator-release` follows the published `X.Y.Z` tag and records `mb-X.Y.Z`.
+
+Operators do not pass a model bundle. Optional `model_run_ref` resumes a production run
+or overwrites a commit/local run. The filename schema is in `docs/VERSIONING.md`.
+The first stage is `s000_resolve_model_run_ref`; later stages load that value.
+
+This workflow triggers individual stages (`src/pm25ml/run/s*`), which rely on
+dependency injection to get their dependencies.
 
 ### Dependency injection
 
